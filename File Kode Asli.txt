@@ -1,0 +1,460 @@
+Arsip
+@extends('layouts.admin')
+
+@section('content')
+<h1 class="text-3xl font-semibold text-gray-800 mb-6">Kelola Arsip</h1>
+
+@if (session('success'))
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <span class="block sm:inline">{{ session('success') }}</span>
+    </div>
+@endif
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+
+    {{-- Header Kontrol --}}
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+
+        {{-- SISI KIRI: Tombol Tambah --}}
+        <div class="flex items-center gap-3">
+            <a href="{{ route('archives.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150">
+                <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Tambah Arsip
+            </a>
+        </div>
+
+        {{-- SISI KANAN: Filter + Pencarian sejajar --}}
+        <div class="flex items-center gap-3 w-full md:w-1/3">
+
+            {{-- 🔹 FILTER --}}
+            <div class="relative inline-block text-left" x-data="{ open: false }">
+                <button type="button" @click="open = !open"
+                    class="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                    title="Filter">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                </button>
+
+                {{-- Dropdown Filter --}}
+                <div x-show="open" @click.away="open = false"
+                    class="absolute left-0 mt-2 w-64 origin-top-left bg-white border border-gray-200 rounded-md shadow-lg z-50 p-4"
+                    x-transition>
+                    <form action="{{ route('archives.index') }}" method="GET" class="space-y-4">
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Kategori</label>
+                            {{-- Hapus onchange --}}
+                            <select name="category" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Kategori</option>
+                                @foreach($categories as $cat)
+                                    <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Bulan</label>
+                            {{-- Hapus onchange --}}
+                            <select name="month" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Bulan</option>
+                                @for ($i = 1; $i <= 12; $i++)
+                                    <option value="{{ $i }}" {{ request('month') == $i ? 'selected' : '' }}>{{ Carbon\Carbon::create()->month($i)->translatedFormat('F') }}</option>
+                                @endfor
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun</label>
+                            {{-- Hapus onchange --}}
+                            <select name="year" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Tahun</option>
+                                @php $currentYear = date('Y'); $startYear = 2022; @endphp
+                                @for ($year = $currentYear; $year >= $startYear; $year--)
+                                    <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                                @endfor
+                            </select>
+                        </div>
+
+                        {{-- BAGIAN TOMBOL --}}
+                        <div class="pt-2 space-y-2">
+                            <button type="submit" 
+                                class="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 uppercase tracking-wider">
+                                Terapkan
+                            </button>
+
+                            @if(request('search') || request('category') || request('month') || request('year'))
+                                <a href="{{ route('archives.index') }}" 
+                                class="block w-full text-center bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 uppercase tracking-wider">
+                                    Reset
+                                </a>
+                            @endif
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {{-- 🔹 FORM PENCARIAN --}}
+            <form action="{{ route('archives.index') }}" method="GET" class="w-full">
+                <input type="hidden" name="category" value="{{ request('category') }}">
+                <input type="hidden" name="month" value="{{ request('month') }}">
+                <input type="hidden" name="year" value="{{ request('year') }}">
+
+                <div class="relative">
+                    <input type="text" name="search" placeholder="Cari Dokumen, Kategori, Deskripsi..."
+                        value="{{ request('search') }}"
+                        class="w-full p-2 pl-10 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+
+                    <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 a7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- BAGIAN TABEL --}}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No.</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Nama Dokumen</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Kategori</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Tanggal Upload</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Action</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse ($archives as $archive)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        {{ $archives->firstItem() + $loop->index }}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $archive->name }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">{{ Str::limit($archive->description, 50) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{{ $archive->category->name ?? 'Tidak Ada' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{{ $archive->uploaded_at->format('d/m/Y') }}</td>
+                    
+                    {{-- KOLOM ACTION --}}
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <div class="flex items-center justify-center space-x-3">
+                            {{-- Lihat (Biru) --}}
+                            <a href="{{ route('archives.show', $archive->id) }}" target="_blank" class="text-blue-600 hover:text-blue-900 transition-colors" title="Lihat">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </a>
+
+                            {{-- Unduh (Hijau) --}}
+                            <a href="{{ route('archives.download', $archive->id) }}" class="text-green-600 hover:text-green-900 transition-colors" title="Unduh">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                            </a>
+
+                            {{-- Edit (Kuning) --}}
+                            <a href="{{ route('archives.edit', $archive->id) }}" class="text-yellow-600 hover:text-yellow-900 transition-colors" title="Edit">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </a>
+
+                            {{-- Hapus (Merah) --}}
+                            <form action="{{ route('archives.destroy', $archive->id) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus arsip ini?')">
+                                @csrf 
+                                @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="Hapus">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">Belum ada data arsip yang diunggah.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mt-4">
+        {{ $archives->appends(request()->query())->links() }}
+    </div>
+</div>
+@endsection
+
+Surat
+@extends('layouts.admin')
+
+@section('content')
+<h1 class="text-3xl font-semibold text-gray-800 mb-6">Kelola Surat</h1>
+
+@if (session('success'))
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <span class="block sm:inline">{{ session('success') }}</span>
+    </div>
+@endif
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+
+    {{-- Header Kontrol --}}
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+
+        {{-- SISI KIRI: Hanya Tombol Tambah Surat --}}
+        <div class="flex items-center gap-3">
+            <a href="{{ route('letters.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150">
+                <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Tambah Surat
+            </a>
+        </div>
+
+        {{-- SISI KANAN: Filter + Pencarian sejajar --}}
+        <div class="flex items-center gap-3 w-full md:w-1/3">
+
+            {{-- FILTER --}}
+            <div class="relative inline-block text-left" x-data="{ open: false }">
+                <button type="button" @click="open = !open"
+                    class="flex items-center justify-center p-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                    title="Filter">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                </button>
+
+                {{-- Dropdown Filter --}}
+                <div x-show="open" @click.away="open = false"
+                    class="absolute left-0 mt-2 w-64 origin-top-left bg-white border border-gray-200 rounded-md shadow-lg z-50 p-4"
+                    x-transition>
+                    <form action="{{ route('letters.index') }}" method="GET" class="space-y-4">
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Kategori</label>
+                            {{-- Hapus onchange --}}
+                            <select name="category" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Kategori</option>
+                                @foreach($categories as $cat)
+                                    <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
+                            {{-- Hapus onchange --}}
+                            <select name="status" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Status</option>
+                                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Perlu Tindakan</option>
+                                <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Selesai</option>
+                                <option value="no_action" {{ request('status') == 'no_action' ? 'selected' : '' }}>Arsip</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Bulan</label>
+                            {{-- Hapus onchange --}}
+                            <select name="month" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Bulan</option>
+                                @for ($i = 1; $i <= 12; $i++)
+                                    <option value="{{ $i }}" {{ request('month') == $i ? 'selected' : '' }}>{{ Carbon\Carbon::create()->month($i)->translatedFormat('F') }}</option>
+                                @endfor
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun</label>
+                            {{-- Hapus onchange --}}
+                            <select name="year" class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500">
+                                <option value="">Semua Tahun</option>
+                                @php $currentYear = date('Y'); $startYear = 2022; @endphp
+                                @for ($year = $currentYear; $year >= $startYear; $year--)
+                                    <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                                @endfor
+                            </select>
+                        </div>
+
+                        {{-- BAGIAN TOMBOL --}}
+                        <div class="pt-2 space-y-2">
+                            <button type="submit" 
+                                class="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 uppercase tracking-wider">
+                                Terapkan
+                            </button>
+
+                            @if(request('search') || request('category') || request('status') || request('month') || request('year'))
+                                <a href="{{ route('letters.index') }}" 
+                                    class="block w-full text-center bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 uppercase tracking-wider">
+                                    Reset
+                                </a>
+                            @endif
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {{-- FORM PENCARIAN --}}
+            <form action="{{ route('letters.index') }}" method="GET" class="w-full">
+                <input type="hidden" name="category" value="{{ request('category') }}">
+                <input type="hidden" name="status" value="{{ request('status') }}">
+                <input type="hidden" name="month" value="{{ request('month') }}">
+                <input type="hidden" name="year" value="{{ request('year') }}">
+
+                <div class="relative">
+                    <input type="text" name="search" placeholder="Cari Dokumen, Kategori..."
+                        value="{{ request('search') }}"
+                        class="w-full p-2 pl-10 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+
+                    <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 a7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    {{-- BAGIAN TABEL (Disesuaikan agar identik dengan Kelola Arsip) --}}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">No.</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Nama</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumen</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Kategori</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Tanggal Upload</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Action</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse ($letters as $letter)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        {{ $letters->firstItem() + $loop->index }}
+                    </td>
+
+                    {{-- KOLOM NAMA: Disamakan dengan Kelola Arsip (text-sm font-medium text-gray-900) --}}
+                    <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                        {{ $letter->name }}
+                        @if($letter->need_action)
+                            <div class="mt-1">
+                                @if($letter->action_status === 'pending')
+                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-red-100 text-red-700 border border-red-200 uppercase">
+                                    Perlu Tindakan
+                                </span>
+                                @else
+                                    <span class="px-2 py-0.5 text-[9px] font-bold rounded-md bg-green-100 text-green-700 border border-green-200 uppercase">Selesai</span>
+                                @endif
+                            </div>
+                        @endif
+                    </td>
+
+                    {{-- KOLOM DOKUMEN: Disamakan dengan Kelola Arsip (text-sm text-gray-500) --}}
+                    <td class="px-6 py-4 text-sm text-gray-500">
+                        {{ $letter->original_file_name }}
+                        
+                        @if($letter->admin_note)
+                        <div class="mt-2 text-sm text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 inline-block shadow-sm">
+                            <span class="font-bold uppercase text-[11px] tracking-wider opacity-80">Ket:</span> 
+                            <span class="ml-1 font-medium">"{{ $letter->admin_note }}"</span>
+                        </div>
+                        @endif
+
+                        @if($letter->replyLetter)
+                            <div class="mt-2 text-[10px] p-2 bg-green-50/50 border border-green-100 rounded-lg text-green-800 flex items-center w-fit shadow-sm">
+                                <svg class="w-3 h-3 mr-1.5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
+                                </svg>
+                                <div>
+                                    <span class="font-bold uppercase text-[8px] block mb-1">Balasan Kades:</span>
+                                    <a href="{{ route('letters.show', $letter->replyLetter->id) }}" target="_blank" class="underline hover:text-green-900 font-bold">
+                                        {{ $letter->replyLetter->name }}
+                                    </a>
+                                </div>
+                            </div>
+                        @endif
+                    </td>
+
+                    <td class="px-6 py-4 text-sm text-gray-500 text-center">
+                        {{ $letter->category->name ?? 'Tidak Ada' }}
+                    </td>
+
+                    <td class="px-6 py-4 text-sm text-gray-500 text-center">
+                        {{ $letter->uploaded_at->format('d/m/Y') }}
+                    </td>
+
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <div class="flex items-center justify-center space-x-3">
+                            <a href="{{ route('letters.show', $letter->id) }}" target="_blank" class="text-blue-600 hover:text-blue-900 transition-colors" title="Lihat">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </a>
+                            <a href="{{ route('letters.download', $letter->id) }}" class="text-green-600 hover:text-green-900 transition-colors" title="Unduh">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                            </a>
+                            <a href="{{ route('letters.edit', $letter->id) }}" class="text-yellow-600 hover:text-yellow-900 transition-colors" title="Edit">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </a>
+                            <form action="{{ route('letters.destroy', $letter->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus surat ini?')" class="inline">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="Hapus">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">Belum ada data surat yang ditemukan.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-4">
+        {{ $letters->appends(request()->query())->links() }}
+    </div>
+
+</div>
+@endsection
+
+Surat Controller
+public function show(Letter $letter)
+    {
+        // Pastikan path benar
+        if (!Storage::exists($letter->file_path)) {
+            return response()->json(['error' => 'File tidak ditemukan'], 404);
+        }
+        
+        $path = Storage::path($letter->file_path);
+        $mimeType = Storage::mimeType($letter->file_path);
+
+        // Kirim file ke browser untuk ditampilkan
+        return response()->file($path, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $letter->original_file_name . '"'
+        ]);
+    }

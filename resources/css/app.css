@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* Animasi putaran 360 derajat */
+    @keyframes rgb-rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Container utama untuk membungkus input */
+    .rgb-input-wrapper {
+        @apply relative p-[2px] overflow-hidden rounded-md flex items-center justify-center bg-gray-200 dark:bg-gray-700;
+        z-index: 1;
+    }
+
+    /* Lapisan warna RGB yang berputar di belakang */
+    .rgb-input-wrapper::before {
+        content: "";
+        @apply absolute;
+        width: 150%;
+        height: 500%; /* Dibuat lebih tinggi agar cover seluruh area saat berputar */
+        background: conic-gradient(
+            #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff, #ff0000
+        );
+        animation: rgb-rotate 4s linear infinite;
+        z-index: -2;
+    }
+
+    /* Lapisan penutup tengah agar warna hanya terlihat di tepi (sebagai border) */
+    .rgb-input-wrapper::after {
+        content: "";
+        @apply absolute inset-[2px] rounded-[5px] bg-white dark:bg-gray-900;
+        z-index: -1;
+    }
+
+    /* Menghilangkan border asli input bawaan agar tidak bentrok dengan RGB */
+    .rgb-input-wrapper input {
+        @apply border-none bg-transparent focus:ring-0 w-full;
+    }
+}
