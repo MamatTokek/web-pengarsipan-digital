@@ -41,10 +41,13 @@
 
         <div class="mt-4">
             <x-input-label for="role" :value="__('Daftar Sebagai')" />
-            <select id="role" name="role" required class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm block mt-1 w-full">
-                <option value="admin">{{ __('Admin') }}</option>
-                <option value="kepala_desa">{{ __('Kepala Desa') }}</option>
-                <option value="super_role">Super Admin</option>
+            <select id="role" name="role" class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                <option value="" disabled selected>-- Pilih Role --</option>
+                @foreach($allRoles as $key => $label)
+                    <option value="{{ $key }}" {{ in_array($key, $usedRoles) ? 'disabled class=bg-gray-100' : '' }}>
+                        {{ $label }} {{ in_array($key, $usedRoles) ? '(Sudah Terdaftar)' : '' }}
+                    </option>
+                @endforeach
             </select>
             <x-input-error :messages="$errors->get('role')" class="mt-2" />
         </div>

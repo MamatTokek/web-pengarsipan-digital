@@ -40,12 +40,18 @@
             @endif
             
             {{-- 2. Container untuk Tombol Login dan Register --}}
+            {{-- Cek apakah masih ada role yang tersedia --}}
+            @php
+                $totalUsers = \App\Models\User::count();
+                $maxRoles = 3; // Jumlah maksimal role di sistem Anda
+            @endphp
+
             <div class="flex items-center space-x-3">
-                
-                {{-- Tombol Register --}}
-                <a href="{{ route('register') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 border border-gray-300 rounded-md font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-300 focus:bg-gray-300 active:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                    {{ __('Register') }}
-                </a>
+                @if ($totalUsers < $maxRoles)
+                    <a href="{{ route('register') }}" class="inline-flex items-center px-4 py-2 bg-gray-200 border border-gray-300 rounded-md font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-300 focus:bg-gray-300 active:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                        {{ __('Register') }}
+                    </a>
+                @endif
                 
                 {{-- Tombol Login (Utama) --}}
                 <x-primary-button class="ms-4 bg-indigo-600 hover:bg-indigo-700">

@@ -105,3 +105,5 @@ css RGB
         @apply border-none bg-transparent focus:ring-0 w-full;
     }
 }
+
+window.open('https://word.new', '_blank');

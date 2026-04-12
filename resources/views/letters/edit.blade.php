@@ -7,7 +7,7 @@
     showErrorModal: false, 
     copiedNumber: '', 
     openWord() {
-        window.open('https://word.new', '_blank');
+        window.location.href = 'ms-word:ofn|u|';
         this.showCopyModal = false;
     }
 }">
