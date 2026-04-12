@@ -8,7 +8,7 @@
     showErrorModal: false, 
     copiedNumber: '', 
     openWord() {
-        window.location.href = 'ms-word:';
+        window.open('https://word.new', '_blank');
         this.showCopyModal = false;
     }
 }">
