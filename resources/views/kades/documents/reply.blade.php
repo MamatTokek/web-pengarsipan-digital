@@ -13,7 +13,7 @@
     showErrorModal: false, 
     copiedNumber: '', 
     openWord() {
-        window.location.href = 'ms-word:ofn|u|';
+        window.open('https://word.new', '_blank');
         this.showCopyModal = false;
     }
 }">

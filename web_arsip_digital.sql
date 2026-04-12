@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 11 Apr 2026 pada 12.02
+-- Waktu pembuatan: 12 Apr 2026 pada 08.28
 -- Versi server: 10.4.32-MariaDB
 -- Versi PHP: 8.2.12
 
@@ -37,89 +37,6 @@ CREATE TABLE `activities` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data untuk tabel `activities`
---
-
-INSERT INTO `activities` (`id`, `user_id`, `description`, `subject_name`, `type`, `created_at`, `updated_at`) VALUES
-(56, 5, 'baru saja membalas surat dengan QR Code', 'Surat Biasa', 'Surat', '2026-01-21 13:47:19', '2026-01-21 13:47:19'),
-(57, 2, 'baru saja menambahkan surat baru dengan QR Code', 'Surat untuk Rizkyyy', 'Surat', '2026-01-22 06:20:11', '2026-01-22 06:20:11'),
-(58, 2, 'baru saja menambahkan surat baru dengan QR Code', 'dfdfdf', 'Surat', '2026-01-23 15:20:16', '2026-01-23 15:20:16'),
-(59, 2, 'baru saja memperbarui data surat', 'dfdfdf', 'Surat', '2026-01-25 13:00:40', '2026-01-25 13:00:40'),
-(60, 2, 'baru saja menambahkan arsip baru dengan QR Code', 'Surat Biasa', 'Arsip', '2026-01-27 13:41:24', '2026-01-27 13:41:24'),
-(61, 2, 'baru saja memperbarui data arsip', 'Surat Biasa', 'Arsip', '2026-01-27 14:58:31', '2026-01-27 14:58:31'),
-(62, 2, 'baru saja memperbarui data arsip', 'Surat Biasa', 'Arsip', '2026-01-27 15:05:07', '2026-01-27 15:05:07'),
-(63, 2, 'baru saja memperbarui data arsip', 'Surat Biasa', 'Arsip', '2026-01-27 15:10:21', '2026-01-27 15:10:21'),
-(64, 2, 'baru saja memperbarui data arsip', 'Surat Biasa', 'Arsip', '2026-01-27 15:17:35', '2026-01-27 15:17:35'),
-(65, 2, 'baru saja menambahkan surat baru dengan QR Code', 'Surat Biasa', 'Surat', '2026-01-31 13:05:04', '2026-01-31 13:05:04'),
-(66, 2, 'baru saja menambahkan arsip baru dengan QR Code', 'Arsip Penting', 'Arsip', '2026-01-31 13:09:22', '2026-01-31 13:09:22'),
-(67, 2, 'baru saja memperbarui data surat', 'Surat Biasa', 'Surat', '2026-01-31 13:09:49', '2026-01-31 13:09:49'),
-(68, 2, 'baru saja menambahkan surat baru dengan QR Code', 'Surat Dinas', 'Surat', '2026-01-31 13:27:36', '2026-01-31 13:27:36'),
-(69, 2, 'baru saja memperbarui data surat', 'Surat Biasa', 'Surat', '2026-01-31 13:28:16', '2026-01-31 13:28:16'),
-(70, 5, 'baru saja membalas surat', 'Surat Dinas', 'Surat', '2026-02-01 14:49:28', '2026-02-01 14:49:28'),
-(71, 5, 'telah memperbarui balasan surat', 'Surat Dinas', 'Surat', '2026-02-01 15:21:05', '2026-02-01 15:21:05'),
-(72, 2, 'baru saja memperbarui data surat', 'Surat Dinas', 'Surat', '2026-02-01 15:32:54', '2026-02-01 15:32:54'),
-(73, 2, 'baru saja memperbarui data surat', 'Surat Dinas', 'Surat', '2026-02-01 15:33:44', '2026-02-01 15:33:44'),
-(74, 5, 'telah memperbarui balasan surat', 'Surat Dinas', 'Surat', '2026-02-01 15:34:33', '2026-02-01 15:34:33'),
-(75, 2, 'baru saja memperbarui data surat', 'Surat Dinas', 'Surat', '2026-02-01 15:39:34', '2026-02-01 15:39:34'),
-(76, 6, 'telah menghapus arsip', 'Arsip Penting', 'Arsip', '2026-02-02 13:00:53', '2026-02-02 13:00:53'),
-(77, 6, 'telah menghapus dokumen secara permanen', 'Surat Dinas fixxx', 'Surat', '2026-02-02 13:25:56', '2026-02-02 13:25:56'),
-(78, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-02-04 01:03:43', '2026-02-04 01:03:43'),
-(79, 5, 'baru saja membalas surat', 'Surat Penting', 'Surat', '2026-02-04 01:06:46', '2026-02-04 01:06:46'),
-(80, 2, 'baru saja memperbarui data surat', 'Surat Penting', 'Surat', '2026-02-04 01:10:43', '2026-02-04 01:10:43'),
-(81, 2, 'baru saja menambahkan arsip baru', 'Surat Biasa', 'Arsip', '2026-02-04 01:16:47', '2026-02-04 01:16:47'),
-(82, 5, 'telah memperbarui balasan surat', 'Surat Penting', 'Surat', '2026-02-04 01:17:50', '2026-02-04 01:17:50'),
-(83, 6, 'telah menghapus dokumen', 'Surat Penting Fixxx', 'Surat', '2026-02-04 01:36:12', '2026-02-04 01:36:12'),
-(84, 5, 'baru saja membalas surat', 'Surat Penting', 'Surat', '2026-02-04 02:14:10', '2026-02-04 02:14:10'),
-(85, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-02-04 02:27:13', '2026-02-04 02:27:13'),
-(86, 5, 'baru saja membalas surat', 'Surat Penting', 'Surat', '2026-02-04 02:28:04', '2026-02-04 02:28:04'),
-(87, 5, 'telah memperbarui balasan surat', 'Surat Penting', 'Surat', '2026-02-04 02:44:58', '2026-02-04 02:44:58'),
-(88, 6, 'telah menghapus dokumen', 'Surat Penting Fixxx', 'Surat', '2026-02-04 02:46:54', '2026-02-04 02:46:54'),
-(89, 2, 'baru saja menambahkan surat baru', 'Undangan Sosialisasi', 'Surat', '2026-02-08 13:47:50', '2026-02-08 13:47:50'),
-(90, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-02-08 13:52:11', '2026-02-08 13:52:11'),
-(91, 5, 'baru saja membalas surat', 'Surat Penting', 'Surat', '2026-02-08 13:59:29', '2026-02-08 13:59:29'),
-(92, 2, 'baru saja menambahkan arsip baru', 'Arsip Penting', 'Arsip', '2026-02-08 14:03:21', '2026-02-08 14:03:21'),
-(93, 2, 'baru saja memperbarui data surat', 'Undangan Sosialisasi', 'Surat', '2026-02-08 14:49:26', '2026-02-08 14:49:26'),
-(94, 5, 'telah mengesahkan surat', 'Undangan Sosialisasi', 'Surat', '2026-02-08 14:55:53', '2026-02-08 14:55:53'),
-(95, 6, 'telah menghapus dokumen', 'Surat Penting fix', 'Surat', '2026-02-08 16:53:42', '2026-02-08 16:53:42'),
-(96, 2, 'baru saja memperbarui data surat', 'Surat Penting', 'Surat', '2026-02-08 17:14:08', '2026-02-08 17:14:08'),
-(97, 2, 'baru saja memperbarui data surat', 'Undangan Sosialisasi', 'Surat', '2026-02-11 13:10:37', '2026-02-11 13:10:37'),
-(98, 2, 'baru saja memperbarui data surat', 'Undangan Sosialisasi', 'Surat', '2026-02-11 14:49:26', '2026-02-11 14:49:26'),
-(99, 2, 'baru saja menambahkan arsip baru', 'Foto Bersama', 'Arsip', '2026-02-12 02:48:46', '2026-02-12 02:48:46'),
-(100, 6, 'telah menghapus dokumen', 'Foto Bersama', 'Arsip', '2026-02-12 02:51:29', '2026-02-12 02:51:29'),
-(101, 5, 'telah memperbarui pengesahan surat', 'Undangan Sosialisasi', 'Surat', '2026-02-12 02:57:27', '2026-02-12 02:57:27'),
-(102, 2, 'baru saja menambahkan surat baru', 'Surat Keputusan', 'Surat', '2026-02-12 06:25:59', '2026-02-12 06:25:59'),
-(103, 5, 'telah mengesahkan surat', 'Surat Keputusan', 'Surat', '2026-04-09 07:32:40', '2026-04-09 07:32:40'),
-(104, 5, 'telah membalas surat masuk', 'Surat Penting', 'Surat', '2026-04-09 07:33:54', '2026-04-09 07:33:54'),
-(105, 2, 'baru saja menambahkan surat baru', 'sdsdsd', 'Surat', '2026-04-09 07:56:09', '2026-04-09 07:56:09'),
-(106, 5, 'telah mengesahkan surat', 'sdsdsd', 'Surat', '2026-04-09 07:56:45', '2026-04-09 07:56:45'),
-(107, 2, 'baru saja menambahkan surat baru', 'dfdfdf', 'Surat', '2026-04-09 08:23:37', '2026-04-09 08:23:37'),
-(108, 5, 'telah mengesahkan surat', 'dfdfdf', 'Surat', '2026-04-09 08:27:11', '2026-04-09 08:27:11'),
-(109, 2, 'baru saja menambahkan surat baru', 'Berita Acara SemPro', 'Surat', '2026-04-09 08:46:59', '2026-04-09 08:46:59'),
-(110, 5, 'telah mengesahkan surat', 'Berita Acara SemPro', 'Surat', '2026-04-09 08:47:19', '2026-04-09 08:47:19'),
-(111, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-04-09 11:41:34', '2026-04-09 11:41:34'),
-(112, 5, 'telah membalas surat masuk', 'Surat Penting', 'Surat', '2026-04-09 11:43:30', '2026-04-09 11:43:30'),
-(113, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-04-09 12:08:00', '2026-04-09 12:08:00'),
-(114, 5, 'telah membalas surat masuk', 'Surat Penting', 'Surat', '2026-04-09 12:08:55', '2026-04-09 12:08:55'),
-(115, 2, 'baru saja menambahkan surat baru', 'Surat Biasa', 'Surat', '2026-04-09 12:13:22', '2026-04-09 12:13:22'),
-(116, 5, 'telah mengesahkan surat', 'Surat Biasa', 'Surat', '2026-04-09 12:14:05', '2026-04-09 12:14:05'),
-(117, 2, 'baru saja menambahkan surat baru', 'Surat Biasa', 'Surat', '2026-04-11 05:50:31', '2026-04-11 05:50:31'),
-(118, 5, 'telah mengesahkan surat', 'Surat Biasa', 'Surat', '2026-04-11 05:51:28', '2026-04-11 05:51:28'),
-(119, 2, 'baru saja memperbarui data surat', 'Surat Biasa', 'Surat', '2026-04-11 06:18:47', '2026-04-11 06:18:47'),
-(120, 6, 'telah menghapus dokumen', 'Surat Penting fix', 'Surat', '2026-04-11 06:22:45', '2026-04-11 06:22:45'),
-(121, 5, 'telah membalas surat masuk', 'Surat Penting', 'Surat', '2026-04-11 06:25:04', '2026-04-11 06:25:04'),
-(122, 2, 'baru saja memperbarui data surat', 'Surat Penting', 'Surat', '2026-04-11 06:25:26', '2026-04-11 06:25:26'),
-(123, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-04-11 06:51:41', '2026-04-11 06:51:41'),
-(124, 5, 'telah mengesahkan surat', 'Surat Penting', 'Surat', '2026-04-11 06:52:23', '2026-04-11 06:52:23'),
-(125, 2, 'telah memperbarui data dan file surat asli', 'Surat Penting', 'Surat', '2026-04-11 06:53:01', '2026-04-11 06:53:01'),
-(126, 2, 'baru saja menambahkan surat baru', 'Surat Biasa', 'Surat', '2026-04-11 06:54:06', '2026-04-11 06:54:06'),
-(127, 5, 'telah membalas surat masuk', 'Surat Biasa', 'Surat', '2026-04-11 06:54:56', '2026-04-11 06:54:56'),
-(128, 2, 'telah memperbarui data dan file surat asli', 'Surat Biasa', 'Surat', '2026-04-11 06:55:31', '2026-04-11 06:55:31'),
-(129, 5, 'telah mengesahkan surat', 'Surat Penting', 'Surat', '2026-04-11 07:21:36', '2026-04-11 07:21:36'),
-(130, 2, 'baru saja menambahkan surat baru', 'Surat Penting', 'Surat', '2026-04-11 07:24:05', '2026-04-11 07:24:05'),
-(131, 5, 'telah mengesahkan surat', 'Surat Penting', 'Surat', '2026-04-11 07:24:35', '2026-04-11 07:24:35'),
-(132, 2, 'telah memperbarui data dan file surat asli', 'Surat Penting', 'Surat', '2026-04-11 07:25:23', '2026-04-11 07:25:23');
-
 -- --------------------------------------------------------
 
 --
@@ -151,14 +68,6 @@ CREATE TABLE `cache` (
   `value` mediumtext NOT NULL,
   `expiration` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data untuk tabel `cache`
---
-
-INSERT INTO `cache` (`key`, `value`, `expiration`) VALUES
-('laravel-cache-bagas111@gmail.com|127.0.0.1', 'i:1;', 1767013941),
-('laravel-cache-bagas111@gmail.com|127.0.0.1:timer', 'i:1767013941;', 1767013941);
 
 -- --------------------------------------------------------
 
@@ -317,16 +226,6 @@ CREATE TABLE `messages` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data untuk tabel `messages`
---
-
-INSERT INTO `messages` (`id`, `sender_id`, `receiver_id`, `target_role`, `subject`, `body`, `document_id`, `document_type`, `is_read`, `created_at`, `updated_at`) VALUES
-(17, 2, NULL, 'all', 'Tes', 'Halo semuanya', NULL, NULL, 0, '2026-04-09 04:36:27', '2026-04-09 04:36:27'),
-(18, 2, 6, NULL, 'Ping', 'Halo halo', NULL, NULL, 0, '2026-04-09 04:38:32', '2026-04-09 04:38:32'),
-(19, 6, 2, NULL, 'Coba', 'Oke bang', NULL, NULL, 0, '2026-04-09 05:47:11', '2026-04-09 05:47:11'),
-(20, 2, 6, NULL, 'Permohonan Hapus Dokumen: 11/001/PEM-BAT/IV/2026', 'Mohon bantuan Super Role untuk menghapus dokumen dengan Nama: Surat Penting fix', NULL, NULL, 0, '2026-04-11 06:21:58', '2026-04-11 06:21:58');
-
 -- --------------------------------------------------------
 
 --
@@ -340,18 +239,6 @@ CREATE TABLE `message_reads` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data untuk tabel `message_reads`
---
-
-INSERT INTO `message_reads` (`id`, `message_id`, `user_id`, `created_at`, `updated_at`) VALUES
-(13, 17, 6, NULL, NULL),
-(14, 17, 2, NULL, NULL),
-(15, 18, 6, NULL, NULL),
-(16, 19, 2, NULL, NULL),
-(17, 17, 5, NULL, NULL),
-(18, 20, 6, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -429,8 +316,10 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('O9LTkRbmjL2ckFdnMPl0XjksT9NYBj7grCjEMOym', NULL, '192.168.1.17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 OPR/129.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiZTZOWUI3cGdMZVEwbWxDcTA0NUdrdnprNkNLNGF6aWRlcndCRHJ6RyI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzA6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fX0=', 1775899152),
-('yRY0jQVpQ0mdHAXPuwm41Ez0npc4UYqrfa7PYQVu', NULL, '192.168.1.17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiZTlMVFBtakUyUExROXJzMUg0bTQxa0F3cVZ5dFBwRWlUcTFrMmsxMSI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzA6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9sb2dpbiI7czo1OiJyb3V0ZSI7czo1OiJsb2dpbiI7fX0=', 1775899143);
+('AWmLMPvpDDxNYZY0BhFYMkPn3OGq42iYQkfHL9Me', 9, '192.168.1.17', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoicWZQQkdlU1RvZzdwQkpFQ0Y1bzByaW1oTmhvS2Q2S0NlN0RwaXUwYSI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6OTt9', 1775965839),
+('E0hMsAE4FPaDDu9ZrJEgglG0GIc8C8Wlx05J3p6a', 9, '192.168.1.17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoiMm9wMXFxVXVwRUFaNk55QnJBSmwzVXFvZThyS1lBS3NqeUZnZlhMayI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6OTt9', 1775966501),
+('eVhwjbYV7Kor11PtmpbkXaKzgifWUSXkKo0EmiHQ', 10, '192.168.1.17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoicE9aMmRtRkFDN09VZlBDTTFHSFZsYU9Pb3cxaGdnSTNKSXZ3NFlodSI7czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDA6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9rYWRlcy9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6MTU6ImthZGVzLmRhc2hib2FyZCI7fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjEwO30=', 1775974373),
+('sn0pzXu8IevOuKpRgXb1LZGbTRzfU3q06srpSXkh', 9, '192.168.1.17', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoidkx4RFpLQ3ZRVjc2UzF2MEptZkJreTBSZ3l2azVaNDJHWVZwWG16USI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xOTIuMTY4LjEuMTc6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319czo1MDoibG9naW5fd2ViXzU5YmEzNmFkZGMyYjJmOTQwMTU4MGYwMTRjN2Y1OGVhNGUzMDk4OWQiO2k6OTt9', 1775965906);
 
 -- --------------------------------------------------------
 
@@ -455,9 +344,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `email`, `role`, `email_verified_at`, `password`, `remember_token`, `created_at`, `updated_at`) VALUES
-(2, 'Bagas', 'bagasariefarditya@gmail.com', 'admin', NULL, '$2y$12$Bir8SKWg0IpwsEX4klPNS.K5bRP2VyV59nYwKEyzBzKQt6.0LH/Je', 'z2XJk5Vtzk5VYz9nULEH1ivd6PzWGhTWOGUGDgYL9NVeSFGVgqtmVbl1HJc3', '2025-12-10 19:13:56', '2026-04-09 11:39:37'),
-(5, 'Arief', 'ariefganteng@gmail.com', 'kepala_desa', NULL, '$2y$12$VPdbp1eC8mFf/91wEj4rveq3hev/13bNjo1XdO7idlaCcQ6CsWWaW', NULL, '2025-12-10 19:39:36', '2025-12-10 19:39:36'),
-(6, 'Yanto', 'yanto123@gmail.com', 'super_role', NULL, '$2y$12$zUJ6svWOkm7u/OF6OS.T0.mt7nchCE/3JBonRtIrkmy6wLh.o4Iny', NULL, '2026-01-21 17:18:18', '2026-01-21 17:18:18');
+(7, 'Bagas', 'bagas@gmail.com', 'admin', NULL, '$2y$12$6KapX56H7Fq2C8fr7xxzFuKYpMmVnXGBkxM1wRqbQaAKz5F4Av1ge', NULL, '2026-04-12 03:24:00', '2026-04-12 03:24:00'),
+(8, 'Arief', 'yanto@gmail.com', 'super_role', NULL, '$2y$12$ygQIBcX302xzGhNM.9.Z1eNe.d67DI5B2ivmR0pxJl41mXIIi6B4C', NULL, '2026-04-12 03:25:03', '2026-04-12 03:25:03'),
+(10, 'Arief', 'arief@gmail.com', 'kepala_desa', NULL, '$2y$12$CRO9OLHG1p0pMKQNByKvtOYnKsl4G1OWnvLBIVLgEZ6L2IAmrFnFS', NULL, '2026-04-12 04:08:02', '2026-04-12 04:08:02');
 
 --
 -- Indexes for dumped tables
@@ -634,7 +523,7 @@ ALTER TABLE `migrations`
 -- AUTO_INCREMENT untuk tabel `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)

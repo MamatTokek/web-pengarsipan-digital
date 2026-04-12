@@ -8,7 +8,7 @@
     showErrorModal: false, 
     copiedNumber: '', 
     openWord() {
-        window.location.href = 'ms-word:ofn|u|';
+        window.location.href = 'ms-word:nft|';
         this.showCopyModal = false;
     }
 }">
