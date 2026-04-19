@@ -86,7 +86,11 @@ class ArchiveController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'category_id' => 'required|exists:categories,id', 
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+        ], [
+            // Pesan Error Kustom
+            'file.mimes' => 'Format file tidak didukung! Gunakan PDF, Word (DOC/DOCX), atau Gambar (JPG, JPEG, PNG).',
+            'file.max' => 'Ukuran file maksimal adalah 10MB.',
         ]);
 
         $file = $request->file('file');
@@ -190,7 +194,11 @@ class ArchiveController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'category_id' => 'required|exists:categories,id',
-            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', 
+            'file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240', 
+        ], [
+            // Pesan Error Kustom
+            'file.mimes' => 'Format file tidak didukung! Gunakan PDF, Word (DOC/DOCX), atau Gambar (JPG, JPEG, PNG).',
+            'file.max' => 'Ukuran file maksimal adalah 10MB.',
         ]);
         
         $data = $request->only('name', 'description', 'category_id', 'letter_number');

@@ -113,7 +113,7 @@
             
             <div class="mb-4">
                 <label for="file" class="block text-sm font-medium text-gray-700">Upload Surat</label>
-                <input type="file" name="file" id="file" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700">
+                <input type="file" name="file" id="file" accept=".pdf" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700">
             </div>
 
             <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg mb-6">
@@ -238,7 +238,7 @@
                         <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                             <h3 class="text-lg leading-6 font-bold text-gray-900">Format File Salah!</h3>
                             <div class="mt-2">
-                                <p class="text-sm text-gray-500">Sistem hanya mendukung format **PDF, DOC, atau DOCX**. Silakan ganti file Anda.</p>
+                                <p class="text-sm text-gray-500">Sistem hanya mendukung format PDF. Silahkan ganti file Anda.</p>
                             </div>
                         </div>
                     </div>
@@ -384,10 +384,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (file) {
             const fileName = file.name;
             const ext = fileName.split('.').pop().toLowerCase();
-            const allowed = ['pdf', 'doc', 'docx'];
+            const allowed = ['pdf'];
 
-            // Ambil instance data Alpine untuk memunculkan modal
-            const alpineData = document.querySelector('[x-data]').__x.$data;
+            // Cara akses data Alpine yang mendukung versi 2 dan 3
+            const el = document.querySelector('[x-data]');
+            const alpineData = el.__x ? el.__x.$data : (window.Alpine ? Alpine.$data(el) : null);
 
             if (allowed.includes(ext)) {
                 // Jika benar
@@ -396,7 +397,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.classList.add('hover:bg-indigo-700', 'active:scale-95');
             } else {
                 // Jika salah
-                alpineData.showFileErrorModal = true; // Munculkan modal via Alpine
+                if (alpineData) {
+                    alpineData.showFileErrorModal = true; 
+                } else {
+                    alert("Format file salah! Gunakan PDF");
+                }
+                
                 submitBtn.disabled = true;
                 submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 submitBtn.classList.remove('hover:bg-indigo-700', 'active:scale-95');

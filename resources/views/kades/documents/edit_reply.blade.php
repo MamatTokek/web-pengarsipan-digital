@@ -11,6 +11,7 @@
     qrUrl: '',
     showCopyModal: false,
     showErrorModal: false, 
+    showFileErrorModal: false,
     copiedNumber: '', 
     openWord() {
         window.open('https://word.new', '_blank');
@@ -187,7 +188,7 @@
                         {{-- 4. UPLOAD FILE (OPSIONAL) --}}
                         <div>
                             <label for="file" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Ganti File Balasan (Opsional)</label>
-                            <input type="file" name="file" id="file" 
+                            <input type="file" name="file" id="file" accept=".pdf"
                                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
 
                             <div class="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -206,7 +207,7 @@
                             class="flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg transition text-center transform hover:-translate-y-0.5 uppercase text-sm">
                             Batal
                         </a>
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition transform hover:-translate-y-0.5 uppercase tracking-wider text-sm">
+                        <button type="submit" id="btn_send_reply" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition transform hover:-translate-y-0.5 uppercase tracking-wider text-sm">
                             Simpan Perubahan
                         </button>
                     </div>
@@ -310,6 +311,33 @@
             </div>
         </div>
     </div>
+
+    {{-- Letakkan di bagian bawah sebelum penutup x-data --}}
+    <div x-show="showFileErrorModal" class="fixed inset-0 z-[150] overflow-y-auto" style="display: none;" x-transition>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showFileErrorModal = false"></div>
+            <div class="inline-block bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-bold text-gray-900">Format File Tidak Valid</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">Bapak Kepala Desa, mohon maaf, sistem hanya dapat menerima file balasan dalam format PDF. Silakan ganti file Anda terlebih dahulu.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="showFileErrorModal = false" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-bold text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">Siap, Saya Mengerti</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -321,6 +349,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const autoBulan = document.getElementById('auto_bulan');
     const autoTahun = document.getElementById('auto_tahun');
     const btnCopyWord = document.getElementById('btn_copy_word');
+    const replyInput = document.getElementById('file');
+    const sendButton = document.getElementById('btn_send_reply');
 
     // FUNGSI UNTUK MERANGKAI NOMOR
     function rakitNomor() {
@@ -398,6 +428,28 @@ document.addEventListener('DOMContentLoaded', function() {
     [autoInstansi, autoBulan, autoTahun].forEach(el => {
         el.addEventListener('input', rakitNomor);
         el.addEventListener('change', rakitNomor);
+    });
+
+    replyInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const el = document.querySelector('[x-data]');
+            const alpineData = el.__x ? el.__x.$data : (window.Alpine ? Alpine.$data(el) : null);
+
+            if (ext === 'pdf') {
+                sendButton.disabled = false;
+                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                if (alpineData) {
+                    alpineData.showFileErrorModal = true;
+                }
+                
+                sendButton.disabled = true;
+                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+                // Field tidak dikosongkan secara paksa agar seragam dengan Tambah Surat
+            }
+        }
     });
 });
 </script>

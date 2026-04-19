@@ -190,7 +190,7 @@ class DocumentController extends Controller
     {
         // 1. Validasi Dasar
         $rules = [
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'file' => 'required|file|mimes:pdf|max:10240',
         ];
 
         // Jika Surat Masuk, Kades wajib isi nomor surat baru untuk balasannya
@@ -199,7 +199,10 @@ class DocumentController extends Controller
             $rules['name'] = 'required|string|max:255';
         }
 
-        $request->validate($rules);
+        $request->validate($rules, [
+            'file.mimes' => 'Bapak Kepala Desa, mohon gunakan format PDF untuk balasan surat.',
+            'file.max'   => 'Ukuran file balasan maksimal adalah 10MB.',
+        ]);
 
         $file = $request->file('file');
         $extension = $file->getClientOriginalExtension();
@@ -299,7 +302,7 @@ class DocumentController extends Controller
 
         // 2. Atur validasi secara dinamis
         $rules = [
-            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'file' => 'nullable|file|mimes:pdf|max:10240',
         ];
 
         // Jika Surat Masuk (bukan ID 2), validasi nama dan nomor surat balasan
@@ -308,7 +311,10 @@ class DocumentController extends Controller
             $rules['name'] = 'required|string|max:255';
         }
 
-        $request->validate($rules);
+        $request->validate($rules, [
+            'file.mimes' => 'Format revisi harus berupa PDF!',
+            'file.max'   => 'Ukuran file revisi maksimal adalah 10MB.',
+        ]);
 
         // 3. Siapkan data untuk update
         $data = [];

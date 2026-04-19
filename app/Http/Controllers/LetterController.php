@@ -89,12 +89,17 @@ class LetterController extends Controller
 
     public function store(Request $request)
     {
-        // MODIFIKASI: Menambahkan validasi letter_number (Wajib & Unik)
+        // 1. VALIDASI (Diselaraskan dengan Frontend)
         $request->validate([
             'letter_number' => 'required|string|max:255|unique:letters,letter_number',
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5048',
+            // UBAH: Menyesuaikan mimes ke dokumen dan menaikkan limit ukuran ke 10MB
+            'file' => 'required|file|mimes:pdf|max:10240', 
+        ], [
+            // Pesan Error Kustom agar lebih informatif
+            'file.mimes' => 'Format file tidak didukung! Gunakan PDF',
+            'file.max' => 'Ukuran file maksimal adalah 10MB.',
         ]);
 
         $file = $request->file('file');
@@ -112,7 +117,7 @@ class LetterController extends Controller
 
         $needAction = $request->has('need_action');
 
-        // MODIFIKASI: Menyimpan letter_number ke database
+        // SIMPAN KE DATABASE
         $letter = Letter::create([
             'uuid' => $uuid,
             'letter_number' => $request->letter_number,
@@ -126,6 +131,7 @@ class LetterController extends Controller
             'admin_note' => $needAction ? $request->admin_note : null,
         ]);
 
+        // CATAT AKTIVITAS
         Activity::create([
             'user_id' => Auth::id(),
             'description' => 'baru saja menambahkan surat baru',
@@ -202,8 +208,12 @@ class LetterController extends Controller
         $request->validate([
             'letter_number' => 'required|string|max:255|unique:letters,letter_number,' . $letter->id,
             'name' => 'required|string|max:255',
-            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // Maksimal 10MB
+            'file' => 'nullable|file|mimes:pdf|max:10240', // Maksimal 10MB
             'category_id' => 'required|exists:categories,id',
+        ], [
+            // Pesan Error Kustom agar lebih informatif
+            'file.mimes' => 'Format file tidak didukung! Gunakan PDF',
+            'file.max' => 'Ukuran file maksimal adalah 10MB.',
         ]);
 
         $letter->name = $request->name;
