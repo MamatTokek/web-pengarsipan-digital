@@ -36,13 +36,13 @@ class KadesController extends Controller
         // A. LETTERS
         // Menambahkan 'uuid' dan 'letter_number' ke dalam select
         $latestLetters = DB::table('letters')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
                      DB::raw("'letter' as type")); 
             
         // B. ARCHIVES
         // Menambahkan 'uuid' dan 'letter_number' (Urutan harus sama dengan Letters)
         $latestArchives = DB::table('archives')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
                      DB::raw("'archive' as type")); 
 
         // C. Gabungkan keduanya, urutkan, dan batasi menjadi 10

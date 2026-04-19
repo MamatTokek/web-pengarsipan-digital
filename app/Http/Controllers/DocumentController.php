@@ -43,7 +43,7 @@ class DocumentController extends Controller
 
         // --- QUERY LETTERS (SURAT) ---
         $lettersQuery = DB::table('letters')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
                     'need_action', 'action_status', 'admin_note',
                     DB::raw("'Surat' as type_label"),
                     DB::raw("'letter' as type"))
@@ -71,7 +71,7 @@ class DocumentController extends Controller
 
         // --- QUERY ARCHIVES (ARSIP) ---
         $archivesQuery = DB::table('archives')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
                     DB::raw('NULL as need_action'), DB::raw('NULL as action_status'), DB::raw('NULL as admin_note'),
                     DB::raw("'Arsip' as type_label"),
                     DB::raw("'archive' as type"))

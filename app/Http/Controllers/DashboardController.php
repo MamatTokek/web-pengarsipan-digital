@@ -36,11 +36,11 @@ class DashboardController extends Controller
         
         // 2. QUERY DOKUMEN TERBARU
         $lettersQuery = DB::table('letters')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at',
                      DB::raw("'letter' as type"));
             
         $archivesQuery = DB::table('archives')
-            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'uploaded_at', 
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at',
                      DB::raw("'archive' as type"));
 
         // Gabungkan menggunakan UNION
