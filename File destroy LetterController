@@ -97,4 +97,27 @@ public function destroy(Letter $letter)
                 </tr>
             </thead>
 
-# kode asli tbody kelola surat
+# Untuk mengetahui similarity
+{{-- SISIPAN UTAMA: Tampilkan persentase kemiripan jika user sedang mencari sesuatu --}}
+                    @if(request('search'))
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            @if(isset($document->similarity_score))
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 shadow-sm border border-emerald-200">
+                                    <svg class="w-2 h-2 me-1.5 text-emerald-500" fill="currentColor" viewBox="0 0 8 8">
+                                        <circle cx="4" cy="4" r="3" />
+                                    </svg>
+                                    {{ round($document->similarity_score, 2) }} Cocok
+                                </span>
+                            @else
+                                <span class="text-gray-400 text-xs italic">-</span>
+                            @endif
+                        </td>
+                    @endif
+
+# Untuk mengetahui similarity
+{{-- TAMBAHKAN BLOK INI: Muncul hanya saat user melakukan pencarian --}}
+                    @if(request('search'))
+                        <th class="px-6 py-3 text-center text-xs font-medium text-indigo-600 uppercase tracking-wider w-40 font-semibold bg-indigo-50/50">
+                            Akurasi Kata
+                        </th>
+                    @endif
