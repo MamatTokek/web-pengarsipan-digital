@@ -161,6 +161,14 @@
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Nama</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumen</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Kategori</th>
+                    
+                    {{-- TAMBAHKAN BLOK INI: Muncul hanya saat user melakukan pencarian --}}
+                    @if(request('search'))
+                        <th class="px-6 py-3 text-center text-xs font-medium text-indigo-600 uppercase tracking-wider w-40 font-semibold bg-indigo-50/50">
+                            Akurasi Kata
+                        </th>
+                    @endif
+
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Tanggal Upload</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Action</th>
                 </tr>
@@ -251,6 +259,22 @@
                         {{ $letter->category->name ?? 'Tidak Ada' }}
                     </td>
 
+                    {{-- SISIPAN UTAMA: Tampilkan persentase kemiripan jika user sedang mencari sesuatu --}}
+                    @if(request('search'))
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            @if(isset($letter->similarity_score))
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 shadow-sm border border-emerald-200">
+                                    <svg class="w-2 h-2 me-1.5 text-emerald-500" fill="currentColor" viewBox="0 0 8 8">
+                                        <circle cx="4" cy="4" r="3" />
+                                    </svg>
+                                    {{ round($letter->similarity_score, 2) }}% Cocok
+                                </span>
+                            @else
+                                <span class="text-gray-400 text-xs italic">-</span>
+                            @endif
+                        </td>
+                    @endif
+
                     <td class="px-6 py-4 text-sm text-gray-500 text-center">
                         {{ $letter->uploaded_at->format('d/m/Y') }}
                     </td>
@@ -315,7 +339,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">Belum ada data surat yang ditemukan.</td></tr>
+                <tr><td colspan="{{ request('search') ? 7 : 6 }}" class="px-6 py-8 text-center text-sm text-gray-500">Belum ada data surat yang ditemukan.</td></tr>
                 @endforelse
             </tbody>
         </table>
