@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 // Import Library untuk Stamping
 use Intervention\Image\ImageManager;
@@ -29,20 +30,8 @@ class LetterController extends Controller
         $monthFilter = $request->input('month');
         $yearFilter = $request->input('year');
 
-        // Menggunakan orderBy id DESC agar data terbaru selalu di atas secara konsisten
-        $lettersQuery = Letter::with(['category', 'replyLetter'])
-            ->orderBy('updated_at', 'desc')
-            ->orderBy('id', 'desc'); // Cadangan jika updated_at identik
-
-        // Filter Pencarian - MODIFIKASI: Menambahkan pencarian berdasarkan letter_number
-        if ($search) {
-            $lettersQuery->where(function ($query) use ($search) {
-                $searchLower = strtolower($search); 
-                $query->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
-                    ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"]);
-            });
-        }
+        // 1. QUERY UTAMA (Tanpa Order By dulu karena jika ada search, urutan diatur skor TF-IDF)
+        $lettersQuery = Letter::with(['category', 'replyLetter']);
 
         // Filter Kategori
         if ($categoryFilter) {
@@ -68,7 +57,53 @@ class LetterController extends Controller
             $lettersQuery->whereYear('uploaded_at', $yearFilter);
         }
 
-        $letters = $lettersQuery->paginate(10)->withQueryString(); 
+        // 2. EKSEKUSI LOGIKA PENCARIAN (TF-IDF + COSINE SIMILARITY)
+        if ($search) {
+            // Ambil semua data hasil filter untuk dihitung kemiripannya
+            $allLetters = $lettersQuery->get();
+
+            $corpus = [];
+            foreach ($allLetters as $letter) {
+                // Gabungkan Judul + Nomor Surat + Nama File Asli sebagai korpus teks
+                $corpus[$letter->id] = $letter->name . ' ' . $letter->letter_number . ' ' . $letter->original_file_name;
+            }
+
+            // Hitung skor kemiripan matematika
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            // Petakan skor ke objek model dan filter yang skornya > 0
+            $filteredLetters = collect();
+            foreach ($similarities as $id => $score) {
+                if ($score > 0) {
+                    $letterData = $allLetters->firstWhere('id', $id);
+                    if ($letterData) {
+                        $letterData->similarity_score = $score; // Menyimpan skor (opsional)
+                        $filteredLetters->push($letterData);
+                    }
+                }
+            }
+            
+            $sortedCollection = $filteredLetters; // Hasil sudah terurut dari score tertinggi dari fungsi privat
+        } else {
+            // Jika tidak ada pencarian, urutkan berdasarkan updated_at desc standar
+            $sortedCollection = $lettersQuery->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->get();
+        }
+
+        // 3. LOGIKA PAGINASI MANUAL (Agar fitur pindah halaman tetap bekerja)
+        $perPage = 10;
+        $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+        $currentItems = $sortedCollection->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $letters = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $sortedCollection->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+        );
+        $letters->withQueryString(); // Mempertahankan filter saat pindah halaman
+
+        // 4. LOAD COMPONENT VIEW (Sama seperti kode lama Anda)
         $categories = Category::where('type', 'letter')
             ->whereIn('name', ['Surat Masuk', 'Surat Keluar'])
             ->get(); 
@@ -371,5 +406,85 @@ class LetterController extends Controller
         return response()->json([
             'next_number' => str_pad($nextNumber, 3, '0', STR_PAD_LEFT)
         ]);
+    }
+
+    private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
     }
 }

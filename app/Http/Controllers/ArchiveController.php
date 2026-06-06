@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 // Import Library untuk Stamping
 use Intervention\Image\ImageManager;
@@ -29,36 +30,78 @@ class ArchiveController extends Controller
         $monthFilter = $request->input('month');
         $yearFilter = $request->input('year');
         
-        $archivesQuery = Archive::with('category')->orderBy('updated_at', 'desc'); 
+        // 1. QUERY UTAMA ARSIP (Tanpa Order By dulu karena diatur skor TF-IDF jika ada search)
+        $archivesQuery = Archive::with('category'); 
 
-        if ($search) {
-            $searchLower = strtolower($search); 
-            $archivesQuery->where(function ($query) use ($searchLower) {
-                $query->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
-                      ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
-                      ->orWhereRaw('LOWER(description) LIKE ?', ["%{$searchLower}%"])
-                      ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"])
-                      ->orWhereHas('category', function ($q) use ($searchLower) {
-                          $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"]);
-                      });
-            });
-        }
-
+        // Filter Kategori
         if ($categoryFilter) {
             $archivesQuery->where('category_id', $categoryFilter);
         }
 
+        // Filter Bulan
         if ($monthFilter) {
             $archivesQuery->whereMonth('uploaded_at', $monthFilter);
         }
 
+        // Filter Tahun
         if ($yearFilter) {
             $archivesQuery->whereYear('uploaded_at', $yearFilter);
         }
 
-        $archives = $archivesQuery->paginate(10)->withQueryString(); 
-        
-        // Hanya menampilkan kategori utama arsip (bukan kode jenis)
+        // 2. EKSEKUSI LOGIKA PENCARIAN (TF-IDF + COSINE SIMILARITY)
+        if ($search) {
+            // Ambil semua data arsip yang lolos filter dropdown untuk dihitung skornya
+            $allArchives = $archivesQuery->get();
+
+            $corpus = [];
+            foreach ($allArchives as $archive) {
+                // Mengambil nama kategori jika ada untuk digabungkan ke korpus pencarian
+                $categoryName = $archive->category ? $archive->category->name : '';
+
+                // MODIFIKASI KORPUS: Gabungkan Judul + Nomor + Deskripsi + Nama File + Nama Kategori
+                $corpus[$archive->id] = $archive->name . ' ' . 
+                                        $archive->letter_number . ' ' . 
+                                        $archive->description . ' ' . 
+                                        $archive->original_file_name . ' ' . 
+                                        $categoryName;
+            }
+
+            // Hitung skor kemiripan matematika kosinus
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            // Filter dan petakan arsip yang nilai kemiripannya > 0
+            $filteredArchives = collect();
+            foreach ($similarities as $id => $score) {
+                if ($score > 0) {
+                    $archiveData = $allArchives->firstWhere('id', $id);
+                    if ($archiveData) {
+                        $archiveData->similarity_score = $score; // Simpan skor kemiripan (opsional)
+                        $filteredArchives->push($archiveData);
+                    }
+                }
+            }
+            
+            $sortedCollection = $filteredArchives;
+        } else {
+            // Jika tidak ada pencarian, urutkan berdasarkan arsip terbaru secara standar
+            $sortedCollection = $archivesQuery->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->get();
+        }
+
+        // 3. LOGIKA PAGINASI MANUAL (Menggunakan LengthAwarePaginator)
+        $perPage = 10;
+        $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+        $currentItems = $sortedCollection->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $archives = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $sortedCollection->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+        );
+        $archives->withQueryString(); // Mempertahankan query filter saat pindah halaman
+
+        // 4. KATEGORI UNTUK DROPDOWN
         $categories = Category::where('type', 'archive')
             ->whereNull('kode_surat')
             ->get();
@@ -257,5 +300,85 @@ class ArchiveController extends Controller
             'doc' => $doc,
             'type' => 'Arsip'
         ]);
+    }
+
+    private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
     }
 }

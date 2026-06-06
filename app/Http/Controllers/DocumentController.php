@@ -33,7 +33,7 @@ class DocumentController extends Controller
             ->orderBy('name', 'asc')
             ->get();
 
-        $search = strtolower($request->input('search', ''));
+        $search = $request->input('search'); // Biarkan teks asli (case-insensitive diatur di fungsi TF-IDF)
         $categoryId = $request->input('category');
         $status = $request->input('status');
         $month = $request->input('month');
@@ -53,12 +53,7 @@ class DocumentController extends Controller
             ->when($type == 'Arsip', function ($query) {
                 return $query->whereRaw('1 = 0');
             })
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function($q) use ($search) {
-                    $q->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-                      ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$search}%"]);
-                });
-            })
+            // CATATAN: Logika WHERE LIKE bawaan dihapus karena digantikan oleh kalkulasi TF-IDF di bawah
             ->when($categoryId, function ($query) use ($categoryId) {
                 return $query->where('category_id', $categoryId);
             })
@@ -84,12 +79,7 @@ class DocumentController extends Controller
             ->when($status, function ($query) {
                 return $query->whereRaw('1 = 0');
             })
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function($q) use ($search) {
-                    $q->whereRaw('LOWER(name) LIKE ?', ["%{$search}%"])
-                      ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$search}%"]);
-                });
-            })
+            // CATATAN: Logika WHERE LIKE bawaan dihapus karena digantikan oleh kalkulasi TF-IDF di bawah
             ->when($categoryId, function ($query) use ($categoryId) {
                 return $query->where('category_id', $categoryId);
             })
@@ -100,10 +90,9 @@ class DocumentController extends Controller
         $unionQuery = $lettersQuery->union($archivesQuery);
         $allDocumentsRaw = DB::table(DB::raw("({$unionQuery->toSql()}) as combined"))
             ->mergeBindings($unionQuery)
-            ->orderBy('uploaded_at', 'desc')
-            ->orderBy('id', 'desc')
             ->get();
         
+        // Pemetaan Relasi Kategori Dokumen
         $categoryIds = $allDocumentsRaw->pluck('category_id')->unique()->filter();
         $categoriesMap = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
 
@@ -113,11 +102,44 @@ class DocumentController extends Controller
             return $document;
         });
 
-        // Paginasi Manual
-        $page = Paginator::resolveCurrentPage() ?: 1;
-        $items = $allDocuments->forPage($page, $perPage);
-        $documents = new LengthAwarePaginator($items, $allDocuments->count(), $perPage, $page, [
-            'path' => Paginator::resolveCurrentPath(),
+        // --- PROSES INTI TF-IDF + COSINE SIMILARITY ---
+        if ($search) {
+            $corpus = [];
+            foreach ($allDocuments as $document) {
+                $categoryName = $document->category ? $document->category->name : '';
+                // Korpus teks gabungan: Nama + Nomor + File Asli + Nama Kategori
+                $corpus[$document->type . '_' . $document->id] = $document->name . ' ' . $document->letter_number . ' ' . $document->original_file_name . ' ' . $categoryName;
+            }
+
+            // Kalkulasi skor matematika kosinus
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            $filteredDocuments = collect();
+            foreach ($similarities as $key => $score) {
+                if ($score > 0) {
+                    list($docType, $docId) = explode('_', $key);
+                    $foundDoc = $allDocuments->first(function ($item) use ($docType, $docId) {
+                        return $item->type == $docType && $item->id == $docId;
+                    });
+                    if ($foundDoc) {
+                        $foundDoc->similarity_score = $score;
+                        $filteredDocuments->push($foundDoc);
+                    }
+                }
+            }
+            $sortedCollection = $filteredDocuments;
+        } else {
+            // Jika kotak pencarian kosong, urutkan berdasarkan update terbaru secara standar
+            $sortedCollection = $allDocuments->sortByDesc('uploaded_at')->values();
+        }
+
+        // --- PAGINASI MANUAL ---
+        $page = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+        // Gunakan slice() untuk memotong koleksi data yang sudah diurutkan skor kemiripannya
+        $items = $sortedCollection->slice(($page - 1) * $perPage, $perPage)->all();
+        
+        $documents = new \Illuminate\Pagination\LengthAwarePaginator($items, $sortedCollection->count(), $perPage, $page, [
+            'path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(),
             'query' => $request->query(),
         ]);
         
@@ -447,5 +469,85 @@ class DocumentController extends Controller
 
         // Gunakan redirect ke index kades agar data ter-refresh sempurna
         return redirect()->route('kades.documents.index')->with('success', 'Dokumen dihapus berhasil dihapus');
+    }
+
+    private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
     }
 }
