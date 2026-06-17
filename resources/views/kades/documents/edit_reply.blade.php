@@ -119,11 +119,21 @@
 
                         {{-- 2. NAMA DOKUMEN BALASAN --}}
                         <div>
-                            <label for="name" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Nama Dokumen Balasan</label>
-                            <input type="text" name="name" id="name" required readonly
-                                   class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 transition duration-150 @error('name') border-red-500 @enderror"
-                                   value="{{ old('name', $reply->name) }}"
-                                   placeholder="Contoh: Surat Balasan Permohonan Izin...">
+                            <label for="name" class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                                Nama Dokumen Balasan 
+                                @if($letter->category_id != 2) @endif
+                            </label>
+                            
+                            <input type="text" name="name" id="name" required 
+                                {{-- KONDISI: Jika kategori asal adalah Surat Keluar (2), kunci jadi readonly --}}
+                                {{ $letter->category_id == 2 ? 'readonly' : '' }}
+                                
+                                {{-- KONDISI: Beri background abu-abu tipis bg-gray-100 jika dikunci readonly --}}
+                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 transition duration-150 
+                                        {{ $letter->category_id == 2 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white' }} 
+                                        @error('name') border-red-500 @enderror"
+                                value="{{ old('name', $reply->name ?? $letter->name) }}"
+                                placeholder="Contoh: Surat Balasan Permohonan Izin...">
                         </div>
 
                         {{-- 3. TAMBAHAN: BLOK PERAKIT NOMOR SURAT --}}
@@ -359,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const instansi = autoInstansi.value || '--';
         const bulan = autoBulan.value || '--';
         const tahun = autoTahun.value || '--';
-        finalInput.value = `${kode}/${urut}/${instansi}/${bulan}/${tahun}`;
+        finalInput.value = `${urut}/${kode}/${instansi}/${bulan}/${tahun}`;
     }
 
     // LOGIKA PARSING: Memecah nomor surat lama ke field perakit saat halaman dimuat
@@ -368,11 +378,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (existingNumber && existingNumber !== '--/--/--/--/--') {
             const parts = existingNumber.split('/');
             if (parts.length === 5) {
-                autoKodeSelect.value = parts[0];
-                autoUrut.value = parts[1];
-                autoInstansi.value = parts[2];
-                autoBulan.value = parts[3];
-                autoTahun.value = parts[4];
+                autoUrut.value       = parts[0]; // Indeks 0 = No. Urut
+                autoKodeSelect.value = parts[1]; // Indeks 1 = Kode Jenis
+                autoInstansi.value   = parts[2]; // Indeks 2 = Instansi
+                autoBulan.value      = parts[3]; // Indeks 3 = Bulan
+                autoTahun.value      = parts[4]; // Indeks 4 = Tahun
             }
         }
     }

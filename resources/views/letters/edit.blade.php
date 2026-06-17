@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const bulan = autoBulan.value || '--';
         const tahun = autoTahun.value || '--';
         
-        finalInput.value = `${kode}/${urut}/${instansi}/${bulan}/${tahun}`;
+        finalInput.value = `${urut}/${kode}/${instansi}/${bulan}/${tahun}`;
     }
 
     function updateLayout() {
@@ -314,11 +314,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const existingNumber = "{{ $letter->letter_number }}";
     const parts = existingNumber.split('/');
     if (parts.length === 5) {
-        autoKodeInput.value = parts[0];
-        autoKodeSelect.value = parts[0];
-        autoUrut.value = parts[1];
-        autoInstansi.value = parts[2];
-        autoBulan.value = parts[3];
+        autoUrut.value = parts[0];       // Indeks 0 = No. Urut
+        autoKodeInput.value = parts[1];  // Indeks 1 = Kode Jenis (Untuk Surat Masuk)
+        autoKodeSelect.value = parts[1]; // Indeks 1 = Kode Jenis (Untuk Surat Keluar)
+        autoInstansi.value = parts[2];   // Indeks 2 = Instansi
+        autoBulan.value = parts[3];      // Indeks 3 = Bulan
         autoTahun.value = parts[4];
     }
 

@@ -126,12 +126,21 @@ class LetterController extends Controller
     {
         // 1. VALIDASI (Diselaraskan dengan Frontend)
         $request->validate([
-            'letter_number' => 'required|string|max:255|unique:letters,letter_number',
+            // UBAH BAGIAN INI: Menggunakan array untuk menambahkan rule 'not_in'
+            'letter_number' => [
+                'required',
+                'string',
+                'max:255',
+                'not_in:--/--/--/--/--', // Menolak jika nomor surat masih berupa template kosong
+                'unique:letters,letter_number'
+            ],
             'name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
-            // UBAH: Menyesuaikan mimes ke dokumen dan menaikkan limit ukuran ke 10MB
             'file' => 'required|file|mimes:pdf|max:10240', 
         ], [
+            // TAMBAHKAN PESAN ERROR KUSTOM UNTUK PERAKIT NOMOR SURAT
+            'letter_number.not_in' => 'Anda harus merakit Nomor Surat terlebih dahulu pada blok Perakit Nomor Surat!',
+            'letter_number.unique' => 'Nomor surat ini sudah terdaftar di sistem, silakan gunakan nomor urut lain.',
             // Pesan Error Kustom agar lebih informatif
             'file.mimes' => 'Format file tidak didukung! Gunakan PDF',
             'file.max' => 'Ukuran file maksimal adalah 10MB.',
@@ -241,12 +250,21 @@ class LetterController extends Controller
     {
         // 1. Validasi Input
         $request->validate([
-            'letter_number' => 'required|string|max:255|unique:letters,letter_number,' . $letter->id,
+            // UBAH: Gunakan format array dan tambahkan proteksi template kosong 'not_in'
+            'letter_number' => [
+                'required',
+                'string',
+                'max:255',
+                'not_in:--/--/--/--/--',
+                'unique:letters,letter_number,' . $letter->id
+            ],
             'name' => 'required|string|max:255',
             'file' => 'nullable|file|mimes:pdf|max:10240', // Maksimal 10MB
             'category_id' => 'required|exists:categories,id',
         ], [
-            // Pesan Error Kustom agar lebih informatif
+            // Tambahkan pesan error kustom perakit
+            'letter_number.not_in' => 'Anda harus merakit Nomor Surat terlebih dahulu pada blok Perakit Nomor Surat!',
+            'letter_number.unique' => 'Nomor surat ini sudah terdaftar di sistem, silakan gunakan nomor urut lain.',
             'file.mimes' => 'Format file tidak didukung! Gunakan PDF',
             'file.max' => 'Ukuran file maksimal adalah 10MB.',
         ]);
@@ -382,25 +400,22 @@ class LetterController extends Controller
 
     public function getNextNumber($kode)
     {
-        // Mengambil tahun saat ini
-        $currentYear = date('Y'); //
+        $currentYear = date('Y'); 
 
-        // Mencari surat terakhir yang:
-        // 1. Memiliki kode yang sama di awal
-        // 2. Memiliki tahun yang sama di akhir nomor surat
-        $lastLetter = \App\Models\Letter::where('letter_number', 'LIKE', $kode . '/%')
-            ->where('letter_number', 'LIKE', '%/' . $currentYear) // Tambahan filter tahun
+        // PERBAIKAN: Pencarian lebih spesifik. Pola '_%/%' memastikan ada nomor urut di depan, lalu diikuti oleh '$kode/'
+        $lastLetter = \App\Models\Letter::where('category_id', 2) 
+            ->where('letter_number', 'LIKE', '_%/' . $kode . '/%')
+            ->where('letter_number', 'LIKE', '%/' . $currentYear) 
+            ->orderBy('letter_number', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
         if ($lastLetter) {
-            // Memecah string nomor surat
             $parts = explode('/', $lastLetter->letter_number);
-            // Mengambil bagian nomor urut dan ditambah 1
-            $nextNumber = isset($parts[1]) ? (int)$parts[1] + 1 : 1;
+            // Pastikan mengambil indeks 0 (Nomor urut di bagian pertama)
+            $nextNumber = isset($parts[0]) ? (int)$parts[0] + 1 : 1;
         } else {
-            // Jika belum ada surat dengan kode tersebut DI TAHUN INI, mulai dari 1
-            $nextNumber = 1; //
+            $nextNumber = 1; 
         }
 
         return response()->json([

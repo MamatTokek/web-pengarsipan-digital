@@ -170,24 +170,26 @@ class DocumentController extends Controller
     public function getNextNumber($kode)
     {
         // Mengambil tahun saat ini
-        $currentYear = date('Y'); //
+        $currentYear = date('Y'); 
 
-        // Mencari surat terakhir yang:
-        // 1. Memiliki kode yang sama di awal
-        // 2. Memiliki tahun yang sama di akhir nomor surat
-        $lastLetter = \App\Models\Letter::where('letter_number', 'LIKE', $kode . '/%')
-            ->where('letter_number', 'LIKE', '%/' . $currentYear) // Tambahan filter tahun
+        // PERBAIKAN 1: Tambahkan ->where('category_id', 2) agar nomor urut Surat Masuk manual tidak mencemari Surat Keluar
+        // PERBAIKAN 2: Gunakan pola '_%/%' agar mencari data yang polanya diawali No Urut baru diikuti Kode Jenis
+        $lastLetter = \App\Models\Letter::where('category_id', 2)
+            ->where('letter_number', 'LIKE', '_%/' . $kode . '/%')
+            ->where('letter_number', 'LIKE', '%/' . $currentYear)
+            ->orderBy('letter_number', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
         if ($lastLetter) {
-            // Memecah string nomor surat
+            // Memecah string nomor surat (Contoh format baru: 005/SR/PEM/VI/2026)
             $parts = explode('/', $lastLetter->letter_number);
-            // Mengambil bagian nomor urut dan ditambah 1
-            $nextNumber = isset($parts[1]) ? (int)$parts[1] + 1 : 1;
+            
+            // PERBAIKAN 3: Ambil indeks 0 karena nomor urut sekarang resmi pindah ke bagian paling awal string
+            $nextNumber = isset($parts[0]) ? (int)$parts[0] + 1 : 1;
         } else {
-            // Jika belum ada surat dengan kode tersebut DI TAHUN INI, mulai dari 1
-            $nextNumber = 1; //
+            // Jika belum ada Surat Keluar berkode tersebut di tahun ini, mulai dari 1
+            $nextNumber = 1; 
         }
 
         return response()->json([
@@ -217,11 +219,19 @@ class DocumentController extends Controller
 
         // Jika Surat Masuk, Kades wajib isi nomor surat baru untuk balasannya
         if ($letter->category_id != 2) { // Asumsi ID 2 adalah Surat Keluar
-            $rules['letter_number'] = 'required|string|max:255|unique:letters,letter_number';
+            $rules['letter_number'] = [
+                'required',
+                'string',
+                'max:255',
+                'not_in:--/--/--/--/--', // Mencegah draf kosong lolos
+                'unique:letters,letter_number'
+            ];
             $rules['name'] = 'required|string|max:255';
         }
 
         $request->validate($rules, [
+            'letter_number.not_in' => 'Bapak Kepala Desa, mohon rakit Nomor Surat terlebih dahulu pada blok Perakit Nomor Surat.',
+            'letter_number.unique' => 'Nomor surat ini sudah terdaftar di sistem, silakan gunakan nomor urut lain.',
             'file.mimes' => 'Bapak Kepala Desa, mohon gunakan format PDF untuk balasan surat.',
             'file.max'   => 'Ukuran file balasan maksimal adalah 10MB.',
         ]);
@@ -329,11 +339,19 @@ class DocumentController extends Controller
 
         // Jika Surat Masuk (bukan ID 2), validasi nama dan nomor surat balasan
         if ($letter->category_id != 2) {
-            $rules['letter_number'] = 'required|string|max:255|unique:letters,letter_number,' . $targetDoc->id;
+            $rules['letter_number'] = [
+                'required',
+                'string',
+                'max:255',
+                'not_in:--/--/--/--/--', // Mengunci draf kosong agar tidak masuk DB
+                'unique:letters,letter_number,' . $targetDoc->id
+            ];
             $rules['name'] = 'required|string|max:255';
         }
 
         $request->validate($rules, [
+            'letter_number.not_in' => 'Bapak Kepala Desa, mohon rakit Nomor Surat terlebih dahulu pada blok Perakit Nomor Surat.',
+            'letter_number.unique' => 'Nomor surat ini sudah terdaftar di sistem, silakan gunakan nomor urut lain.',
             'file.mimes' => 'Format revisi harus berupa PDF!',
             'file.max'   => 'Ukuran file revisi maksimal adalah 10MB.',
         ]);
