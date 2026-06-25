@@ -1,0 +1,811 @@
+1. Kode untuk function index Kelola Surat
+
+public function index(Request $request)
+    {
+        $search = $request->input('search');
+        $categoryFilter = $request->input('category');
+        $statusFilter = $request->input('status');
+        $monthFilter = $request->input('month');
+        $yearFilter = $request->input('year');
+
+        // 1. QUERY UTAMA (Tanpa Order By dulu karena jika ada search, urutan diatur skor TF-IDF)
+        $lettersQuery = Letter::with(['category', 'replyLetter']);
+
+        // Filter Kategori
+        if ($categoryFilter) {
+            $lettersQuery->where('category_id', $categoryFilter);
+        }
+
+        // Filter Status Tindakan
+        if ($statusFilter) {
+            if ($statusFilter === 'pending') {
+                $lettersQuery->where('need_action', true)->where('action_status', 'pending');
+            } elseif ($statusFilter === 'completed') {
+                $lettersQuery->where('need_action', true)->where('action_status', 'completed');
+            } elseif ($statusFilter === 'no_action') {
+                $lettersQuery->where('need_action', false);
+            }
+        }
+
+        // Filter Bulan dan Tahun
+        if ($request->filled('month')) {
+            $lettersQuery->whereMonth('uploaded_at', $monthFilter);
+        }
+        if ($request->filled('year')) {
+            $lettersQuery->whereYear('uploaded_at', $yearFilter);
+        }
+
+        // 2. EKSEKUSI LOGIKA PENCARIAN (TF-IDF + COSINE SIMILARITY)
+        if ($search) {
+            // Ambil semua data hasil filter untuk dihitung kemiripannya
+            $allLetters = $lettersQuery->get();
+
+            $corpus = [];
+            foreach ($allLetters as $letter) {
+                // Gabungkan Judul + Nomor Surat + Nama File Asli sebagai korpus teks
+                $corpus[$letter->id] = $letter->name . ' ' . $letter->letter_number . ' ' . $letter->original_file_name;
+            }
+
+            // Hitung skor kemiripan matematika
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            // Petakan skor ke objek model dan filter yang skornya > 0
+            $filteredLetters = collect();
+            foreach ($similarities as $id => $score) {
+                if ($score > 0) {
+                    $letterData = $allLetters->firstWhere('id', $id);
+                    if ($letterData) {
+                        $letterData->similarity_score = $score; // Menyimpan skor (opsional)
+                        $filteredLetters->push($letterData);
+                    }
+                }
+            }
+            
+            $sortedCollection = $filteredLetters; // Hasil sudah terurut dari score tertinggi dari fungsi privat
+        } else {
+            // Jika tidak ada pencarian, urutkan berdasarkan updated_at desc standar
+            $sortedCollection = $lettersQuery->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->get();
+        }
+
+        // 3. LOGIKA PAGINASI MANUAL (Agar fitur pindah halaman tetap bekerja)
+        $perPage = 10;
+        $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+        $currentItems = $sortedCollection->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $letters = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $sortedCollection->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+        );
+        $letters->withQueryString(); // Mempertahankan filter saat pindah halaman
+
+        // 4. LOAD COMPONENT VIEW (Sama seperti kode lama Anda)
+        $categories = Category::where('type', 'letter')
+            ->whereIn('name', ['Surat Masuk', 'Surat Keluar'])
+            ->get(); 
+        
+        $data = [
+            'letters' => $letters,
+            'search' => $search,
+            'categories' => $categories,
+            'categoryFilter' => $categoryFilter,
+            'statusFilter' => $statusFilter,
+            'monthFilter' => $monthFilter,
+            'yearFilter' => $yearFilter,
+            'years' => range(date('Y'), 2022)
+        ];
+
+        return view($request->routeIs('kades.*') ? 'kades.letters.index' : 'letters.index', $data);
+    }
+
+2. Kode untuk Cosine Similarity Kelola Surat
+
+private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
+    }
+
+3. Kode untuk pencarian default Kelola Surat
+
+public function index(Request $request)
+{
+    $search = $request->input('search');
+    $categoryFilter = $request->input('category');
+    $statusFilter = $request->input('status');
+    $monthFilter = $request->input('month');
+    $yearFilter = $request->input('year');
+
+    // 1. QUERY UTAMA DENGAN EAGER LOADING & URUTAN DEFAULT TERBARU
+    $lettersQuery = Letter::with(['category', 'replyLetter'])->orderBy('updated_at', 'desc')->orderBy('id', 'desc');
+
+    // Pencarian SQL Default (Case-Insensitive Menggunakan LOWER + LIKE)
+    if ($search) {
+        $searchLower = strtolower($search);
+        $lettersQuery->where(function ($query) use ($searchLower) {
+            $query->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"]);
+        });
+    }
+
+    // Filter Kategori
+    if ($categoryFilter) {
+        $lettersQuery->where('category_id', $categoryFilter);
+    }
+
+    // Filter Status Tindakan
+    if ($statusFilter) {
+        if ($statusFilter === 'pending') {
+            $lettersQuery->where('need_action', true)->where('action_status', 'pending');
+        } elseif ($statusFilter === 'completed') {
+            $lettersQuery->where('need_action', true)->where('action_status', 'completed');
+        } elseif ($statusFilter === 'no_action') {
+            $lettersQuery->where('need_action', false);
+        }
+    }
+
+    // Filter Bulan dan Tahun
+    if ($request->filled('month')) {
+        $lettersQuery->whereMonth('uploaded_at', $monthFilter);
+    }
+    if ($request->filled('year')) {
+        $lettersQuery->whereYear('uploaded_at', $yearFilter);
+    }
+
+    // 2. PAGINASI OTOMATIS BAWAAN LARAVEL (Jauh lebih ringkas & cepat)
+    $letters = $lettersQuery->paginate(10)->withQueryString();
+
+    // 3. LOAD COMPONENT VIEW
+    $categories = Category::where('type', 'letter')
+        ->whereIn('name', ['Surat Masuk', 'Surat Keluar'])
+        ->get(); 
+    
+    $data = [
+        'letters' => $letters,
+        'search' => $search,
+        'categories' => $categories,
+        'categoryFilter' => $categoryFilter,
+        'statusFilter' => $statusFilter,
+        'monthFilter' => $monthFilter,
+        'yearFilter' => $yearFilter,
+        'years' => range(date('Y'), 2022)
+    ];
+
+    return view($request->routeIs('kades.*') ? 'kades.letters.index' : 'letters.index', $data);
+}
+
+4. Kode function index Kelola Arsip
+
+public function index(Request $request)
+    {
+        $search = $request->input('search');
+        $categoryFilter = $request->input('category');
+        $monthFilter = $request->input('month');
+        $yearFilter = $request->input('year');
+        
+        // 1. QUERY UTAMA ARSIP (Tanpa Order By dulu karena diatur skor TF-IDF jika ada search)
+        $archivesQuery = Archive::with('category'); 
+
+        // Filter Kategori
+        if ($categoryFilter) {
+            $archivesQuery->where('category_id', $categoryFilter);
+        }
+
+        // Filter Bulan
+        if ($monthFilter) {
+            $archivesQuery->whereMonth('uploaded_at', $monthFilter);
+        }
+
+        // Filter Tahun
+        if ($yearFilter) {
+            $archivesQuery->whereYear('uploaded_at', $yearFilter);
+        }
+
+        // 2. EKSEKUSI LOGIKA PENCARIAN (TF-IDF + COSINE SIMILARITY)
+        if ($search) {
+            // Ambil semua data arsip yang lolos filter dropdown untuk dihitung skornya
+            $allArchives = $archivesQuery->get();
+
+            $corpus = [];
+            foreach ($allArchives as $archive) {
+                // Mengambil nama kategori jika ada untuk digabungkan ke korpus pencarian
+                $categoryName = $archive->category ? $archive->category->name : '';
+
+                // MODIFIKASI KORPUS: Gabungkan Judul + Nomor + Deskripsi + Nama File + Nama Kategori
+                $corpus[$archive->id] = $archive->name . ' ' . 
+                                        $archive->letter_number . ' ' . 
+                                        $archive->description . ' ' . 
+                                        $archive->original_file_name . ' ' . 
+                                        $categoryName;
+            }
+
+            // Hitung skor kemiripan matematika kosinus
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            // Filter dan petakan arsip yang nilai kemiripannya > 0
+            $filteredArchives = collect();
+            foreach ($similarities as $id => $score) {
+                if ($score > 0) {
+                    $archiveData = $allArchives->firstWhere('id', $id);
+                    if ($archiveData) {
+                        $archiveData->similarity_score = $score; // Simpan skor kemiripan (opsional)
+                        $filteredArchives->push($archiveData);
+                    }
+                }
+            }
+            
+            $sortedCollection = $filteredArchives;
+        } else {
+            // Jika tidak ada pencarian, urutkan berdasarkan arsip terbaru secara standar
+            $sortedCollection = $archivesQuery->orderBy('updated_at', 'desc')->orderBy('id', 'desc')->get();
+        }
+
+        // 3. LOGIKA PAGINASI MANUAL (Menggunakan LengthAwarePaginator)
+        $perPage = 10;
+        $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage() ?: 1;
+        $currentItems = $sortedCollection->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+        $archives = new \Illuminate\Pagination\LengthAwarePaginator(
+            $currentItems,
+            $sortedCollection->count(),
+            $perPage,
+            $currentPage,
+            ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+        );
+        $archives->withQueryString(); // Mempertahankan query filter saat pindah halaman
+
+        // 4. KATEGORI UNTUK DROPDOWN
+        $categories = Category::where('type', 'archive')
+            ->whereNull('kode_surat')
+            ->get();
+        
+        return view('archives.index', compact('archives', 'categories', 'search', 'categoryFilter', 'monthFilter', 'yearFilter'));
+    }
+
+5. Kode untuk Cosine Similarity Kelola Arsip
+
+private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
+    }
+
+6. Kode untuk pencarian default Kelola Arsip
+
+public function index(Request $request)
+{
+    $search = $request->input('search');
+    $categoryFilter = $request->input('category');
+    $monthFilter = $request->input('month');
+    $yearFilter = $request->input('year');
+    
+    // 1. QUERY UTAMA ARSIP DENGAN EAGER LOADING & URUTAN DEFAULT TERBARU
+    $archivesQuery = Archive::with('category')->orderBy('updated_at', 'desc')->orderBy('id', 'desc'); 
+
+    // Eksekusi Logika Pencarian SQL Default (Case-Insensitive Menggunakan LOWER + LIKE)
+    if ($search) {
+        $searchLower = strtolower($search);
+        
+        // Gabungkan relasi category jika pencarian ingin mencakup nama kategori arsip
+        $archivesQuery->where(function ($query) use ($searchLower) {
+            $query->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(description) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereHas('category', function ($q) use ($searchLower) {
+                      $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"]);
+                  });
+        });
+    }
+
+    // Filter Kategori
+    if ($categoryFilter) {
+        $archivesQuery->where('category_id', $categoryFilter);
+    }
+
+    // Filter Bulan
+    if ($monthFilter) {
+        $archivesQuery->whereMonth('uploaded_at', $monthFilter);
+    }
+
+    // Filter Tahun
+    if ($yearFilter) {
+        $archivesQuery->whereYear('uploaded_at', $yearFilter);
+    }
+
+    // 2. PAGINASI OTOMATIS LARAVEL (Bersih, aman, dan memori server tetap ringan)
+    $archives = $archivesQuery->paginate(10)->withQueryString();
+
+    // 3. KATEGORI UNTUK DROPDOWN FILTER
+    $categories = Category::where('type', 'archive')
+        ->whereNull('kode_surat')
+        ->get();
+    
+    return view('archives.index', compact('archives', 'categories', 'search', 'categoryFilter', 'monthFilter', 'yearFilter'));
+}
+
+7. Kode untuk function index Daftar Dokumen
+
+public function index(Request $request)
+    {
+        // MODIFIKASI: Hanya mengambil kategori untuk surat dan arsip
+        $categories = Category::whereNull('kode_surat')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $search = $request->input('search'); // Biarkan teks asli (case-insensitive diatur di fungsi TF-IDF)
+        $categoryId = $request->input('category');
+        $status = $request->input('status');
+        $month = $request->input('month');
+        $year = $request->input('year'); 
+        $type = $request->input('type'); 
+        $perPage = 10;
+
+        // --- QUERY LETTERS (SURAT) ---
+        $lettersQuery = DB::table('letters')
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
+                    'need_action', 'action_status', 'admin_note',
+                    DB::raw("'Surat' as type_label"),
+                    DB::raw("'letter' as type"))
+            ->when($year, function ($query) use ($year) {
+                return $query->whereYear('uploaded_at', $year);
+            })
+            ->when($type == 'Arsip', function ($query) {
+                return $query->whereRaw('1 = 0');
+            })
+            // CATATAN: Logika WHERE LIKE bawaan dihapus karena digantikan oleh kalkulasi TF-IDF di bawah
+            ->when($categoryId, function ($query) use ($categoryId) {
+                return $query->where('category_id', $categoryId);
+            })
+            ->when($status, function ($query) use ($status) {
+                return $query->where('action_status', $status);
+            })
+            ->when($month, function ($query) use ($month) {
+                return $query->whereMonth('uploaded_at', $month);
+            });
+
+        // --- QUERY ARCHIVES (ARSIP) ---
+        $archivesQuery = DB::table('archives')
+            ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
+                    DB::raw('NULL as need_action'), DB::raw('NULL as action_status'), DB::raw('NULL as admin_note'),
+                    DB::raw("'Arsip' as type_label"),
+                    DB::raw("'archive' as type"))
+            ->when($year, function ($query) use ($year) {
+                return $query->whereYear('uploaded_at', $year);
+            })
+            ->when($type == 'Surat', function ($query) {
+                return $query->whereRaw('1 = 0');
+            })
+            ->when($status, function ($query) {
+                return $query->whereRaw('1 = 0');
+            })
+            // CATATAN: Logika WHERE LIKE bawaan dihapus karena digantikan oleh kalkulasi TF-IDF di bawah
+            ->when($categoryId, function ($query) use ($categoryId) {
+                return $query->where('category_id', $categoryId);
+            })
+            ->when($month, function ($query) use ($month) {
+                return $query->whereMonth('uploaded_at', $month);
+            });
+
+        $unionQuery = $lettersQuery->union($archivesQuery);
+        $allDocumentsRaw = DB::table(DB::raw("({$unionQuery->toSql()}) as combined"))
+            ->mergeBindings($unionQuery)
+            ->get();
+        
+        // Pemetaan Relasi Kategori Dokumen
+        $categoryIds = $allDocumentsRaw->pluck('category_id')->unique()->filter();
+        $categoriesMap = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+
+        $allDocuments = $allDocumentsRaw->map(function ($document) use ($categoriesMap) {
+            $document->category = $categoriesMap->get($document->category_id);
+            $document->route_name_prefix = $document->type_label === 'Surat' ? 'letters' : 'archives';
+            return $document;
+        });
+
+        // --- PROSES INTI TF-IDF + COSINE SIMILARITY ---
+        if ($search) {
+            $corpus = [];
+            foreach ($allDocuments as $document) {
+                $categoryName = $document->category ? $document->category->name : '';
+                // Korpus teks gabungan: Nama + Nomor + File Asli + Nama Kategori
+                $corpus[$document->type . '_' . $document->id] = $document->name . ' ' . $document->letter_number . ' ' . $document->original_file_name . ' ' . $categoryName;
+            }
+
+            // Kalkulasi skor matematika kosinus
+            $similarities = $this->calculateCosineSimilarity($search, $corpus);
+
+            $filteredDocuments = collect();
+            foreach ($similarities as $key => $score) {
+                if ($score > 0) {
+                    list($docType, $docId) = explode('_', $key);
+                    $foundDoc = $allDocuments->first(function ($item) use ($docType, $docId) {
+                        return $item->type == $docType && $item->id == $docId;
+                    });
+                    if ($foundDoc) {
+                        $foundDoc->similarity_score = $score;
+                        $filteredDocuments->push($foundDoc);
+                    }
+                }
+            }
+            $sortedCollection = $filteredDocuments;
+        } else {
+            // Jika kotak pencarian kosong, urutkan berdasarkan update terbaru secara standar
+            $sortedCollection = $allDocuments->sortByDesc('uploaded_at')->values();
+        }
+
+        // --- PAGINASI MANUAL ---
+        $page = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+        // Gunakan slice() untuk memotong koleksi data yang sudah diurutkan skor kemiripannya
+        $items = $sortedCollection->slice(($page - 1) * $perPage, $perPage)->all();
+        
+        $documents = new \Illuminate\Pagination\LengthAwarePaginator($items, $sortedCollection->count(), $perPage, $page, [
+            'path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(),
+            'query' => $request->query(),
+        ]);
+        
+        // PENGALIHAN VIEW BERDASARKAN ROLE
+        if (Auth::user()->role === 'super_role') {
+            return view('super_admin.documents_index', [
+                'documents' => $documents,
+                'categories' => $categories,
+                'search' => $request->input('search'),
+            ]);
+        }
+
+        return view('kades.documents.index', [
+            'documents' => $documents,
+            'categories' => $categories,
+            'search' => $request->input('search'),
+            'years' => range(date('Y'), 2022), 
+        ]);
+    }
+
+8. Kode untuk Cosine Similarity Daftar Dokumen
+
+private function calculateCosineSimilarity($query, $corpus)
+    {
+        // 1. Bersihkan string (Kecilkan huruf dan hapus tanda baca khusus)
+        $cleanQuery = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($query));
+        $queryTerms = array_filter(explode(' ', $cleanQuery));
+
+        $documents = [];
+        $allTerms = $queryTerms;
+
+        foreach ($corpus as $id => $text) {
+            $cleanText = preg_replace('/[^a-zA-Z0-9\s]/', '', strtolower($text));
+            $terms = array_filter(explode(' ', $cleanText));
+            $documents[$id] = $terms;
+            $allTerms = array_merge($allTerms, $terms);
+        }
+        
+        // Kumpulan kosakata unik dari semua dokumen + query
+        $allTerms = array_unique($allTerms); 
+
+        // 2. Hitung Document Frequency (DF) untuk setiap kata
+        $df = []; 
+        foreach ($allTerms as $term) {
+            $df[$term] = 0;
+            foreach ($documents as $doc) {
+                if (in_array($term, $doc)) {
+                    $df[$term]++;
+                }
+            }
+        }
+
+        // 3. Hitung Vektor TF-IDF untuk semua Dokumen di Database
+        $matrix = [];
+        $totalDocs = count($documents);
+        foreach ($documents as $id => $doc) {
+            $tf = array_count_values($doc);
+            foreach ($allTerms as $term) {
+                $termTf = isset($tf[$term]) ? $tf[$term] : 0;
+                $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+                $matrix[$id][$term] = $termTf * $termIdf;
+            }
+        }
+
+        // 4. Hitung Vektor TF-IDF untuk kata kunci Pencarian (Query)
+        $queryVector = [];
+        $queryTf = array_count_values($queryTerms);
+        foreach ($allTerms as $term) {
+            $termTf = isset($queryTf[$term]) ? $queryTf[$term] : 0;
+            $termIdf = isset($df[$term]) && $df[$term] > 0 ? log(($totalDocs + 1) / ($df[$term] + 1)) + 1 : 0;
+            $queryVector[$term] = $termTf * $termIdf;
+        }
+
+        // 5. HITUNG COSINE SIMILARITY ANTARA QUERY DAN DOKUMEN
+        $scores = [];
+        $queryMagnitude = 0;
+        foreach ($queryVector as $weight) {
+            $queryMagnitude += $weight * $weight;
+        }
+        $queryMagnitude = sqrt($queryMagnitude);
+
+        foreach ($matrix as $id => $docVector) {
+            $dotProduct = 0;
+            $docMagnitude = 0;
+            foreach ($allTerms as $term) {
+                $dotProduct += $queryVector[$term] * $docVector[$term];
+                $docMagnitude += $docVector[$term] * $docVector[$term];
+            }
+            $docMagnitude = sqrt($docMagnitude);
+
+            if ($queryMagnitude * $docMagnitude == 0) {
+                $scores[$id] = 0;
+            } else {
+                $scores[$id] = $dotProduct / ($queryMagnitude * $docMagnitude);
+            }
+        }
+
+        // Urutkan skor kemiripan teks dari yang terbesar ke terkecil
+        arsort($scores); 
+        return $scores;
+    }
+
+9. Kode untuk pencarian default Daftar Dokumen
+
+public function index(Request $request)
+{
+    // Mengambil kategori utama untuk surat dan arsip
+    $categories = Category::whereNull('kode_surat')
+        ->orderBy('name', 'asc')
+        ->get();
+
+    $search = $request->input('search'); 
+    $categoryId = $request->input('category');
+    $status = $request->input('status');
+    $month = $request->input('month');
+    $year = $request->input('year'); 
+    $type = $request->input('type'); 
+    $perPage = 10;
+
+    $searchLower = $search ? strtolower($search) : null;
+
+    // --- QUERY LETTERS (SURAT) ---
+    $lettersQuery = DB::table('letters')
+        ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
+                'need_action', 'action_status', 'admin_note',
+                DB::raw("'Surat' as type_label"),
+                DB::raw("'letter' as type"))
+        ->when($year, function ($query) use ($year) {
+            return $query->whereYear('uploaded_at', $year);
+        })
+        ->when($type == 'Arsip', function ($query) {
+            return $query->whereRaw('1 = 0');
+        })
+        ->when($categoryId, function ($query) use ($categoryId) {
+            return $query->where('category_id', $categoryId);
+        })
+        ->when($status, function ($query) use ($status) {
+            return $query->where('action_status', $status);
+        })
+        ->when($month, function ($query) use ($month) {
+            return $query->whereMonth('uploaded_at', $month);
+        })
+        // PERBAIKAN: Suntikkan klausa LIKE SQL di tabel letters
+        ->when($searchLower, function ($query) use ($searchLower) {
+            return $query->where(function ($q) use ($searchLower) {
+                $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"]);
+            });
+        });
+
+    // --- QUERY ARCHIVES (ARSIP) ---
+    $archivesQuery = DB::table('archives')
+        ->select('id', 'uuid', 'letter_number', 'name', 'original_file_name', 'category_id', 'updated_at as uploaded_at', 
+                DB::raw('NULL as need_action'), DB::raw('NULL as action_status'), DB::raw('NULL as admin_note'),
+                DB::raw("'Arsip' as type_label"),
+                DB::raw("'archive' as type"))
+        ->when($year, function ($query) use ($year) {
+            return $query->whereYear('uploaded_at', $year);
+        })
+        ->when($type == 'Surat', function ($query) {
+            return $query->whereRaw('1 = 0');
+        })
+        ->when($status, function ($query) {
+            return $query->whereRaw('1 = 0');
+        })
+        ->when($categoryId, function ($query) use ($categoryId) {
+            return $query->where('category_id', $categoryId);
+        })
+        ->when($month, function ($query) use ($month) {
+            return $query->whereMonth('uploaded_at', $month);
+        })
+        // PERBAIKAN: Suntikkan klausa LIKE SQL di tabel archives
+        ->when($searchLower, function ($query) use ($searchLower) {
+            return $query->where(function ($q) use ($searchLower) {
+                $q->whereRaw('LOWER(name) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(letter_number) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(description) LIKE ?', ["%{$searchLower}%"])
+                  ->orWhereRaw('LOWER(original_file_name) LIKE ?', ["%{$searchLower}%"]);
+            });
+        });
+
+    // --- UNION & ORDERING KESELURUHAN SECARA DEFAULT ---
+    $unionQuery = $lettersQuery->union($archivesQuery);
+    
+    // Gabungkan query union ke dalam satu wrapper table pembungkus agar bisa di-paginate secara global
+    $combinedQuery = DB::table(DB::raw("({$unionQuery->toSql()}) as combined"))
+        ->mergeBindings($unionQuery)
+        ->orderBy('uploaded_at', 'desc'); // Menjamin dokumen terbaru selalu di paling atas
+
+    // --- PAGINASI OTOMATIS LARAVEL (Efisien & Cepat) ---
+    $documents = $combinedQuery->paginate($perPage)->withQueryString();
+    
+    // Pemetaan Relasi Kategori Dokumen (Lazy Loading Manual untuk Hasil Paginate)
+    $categoryIds = collect($documents->items())->pluck('category_id')->unique()->filter();
+    $categoriesMap = Category::whereIn('id', $categoryIds)->get()->keyBy('id');
+
+    foreach ($documents->items() as $document) {
+        $document->category = $categoriesMap->get($document->category_id);
+        $document->route_name_prefix = $document->type_label === 'Surat' ? 'letters' : 'archives';
+    }
+
+    // PENGALIHAN VIEW BERDASARKAN ROLE
+    if (Auth::user()->role === 'super_role') {
+        return view('super_admin.documents_index', [
+            'documents' => $documents,
+            'categories' => $categories,
+            'search' => $search,
+        ]);
+    }
+
+    return view('kades.documents.index', [
+        'documents' => $documents,
+        'categories' => $categories,
+        'search' => $search,
+        'years' => range(date('Y'), 2022), 
+    ]);
+}
