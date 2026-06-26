@@ -74,7 +74,7 @@ class LetterController extends Controller
             // Petakan skor ke objek model dan filter yang skornya > 0
             $filteredLetters = collect();
             foreach ($similarities as $id => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     $letterData = $allLetters->firstWhere('id', $id);
                     if ($letterData) {
                         $letterData->similarity_score = $score; // Menyimpan skor (opsional)

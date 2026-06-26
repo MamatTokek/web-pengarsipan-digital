@@ -52,7 +52,7 @@ public function index(Request $request)
             // Petakan skor ke objek model dan filter yang skornya > 0
             $filteredLetters = collect();
             foreach ($similarities as $id => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     $letterData = $allLetters->firstWhere('id', $id);
                     if ($letterData) {
                         $letterData->similarity_score = $score; // Menyimpan skor (opsional)
@@ -302,7 +302,7 @@ public function index(Request $request)
             // Filter dan petakan arsip yang nilai kemiripannya > 0
             $filteredArchives = collect();
             foreach ($similarities as $id => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     $archiveData = $allArchives->firstWhere('id', $id);
                     if ($archiveData) {
                         $archiveData->similarity_score = $score; // Simpan skor kemiripan (opsional)
@@ -567,7 +567,7 @@ public function index(Request $request)
 
             $filteredDocuments = collect();
             foreach ($similarities as $key => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     list($docType, $docId) = explode('_', $key);
                     $foundDoc = $allDocuments->first(function ($item) use ($docType, $docId) {
                         return $item->type == $docType && $item->id == $docId;
@@ -581,7 +581,12 @@ public function index(Request $request)
             $sortedCollection = $filteredDocuments;
         } else {
             // Jika kotak pencarian kosong, urutkan berdasarkan update terbaru secara standar
-            $sortedCollection = $allDocuments->sortByDesc('uploaded_at')->values();
+            $sortedCollection = $allDocuments->sort(function ($a, $b) {
+                if ($a->uploaded_at === $b->uploaded_at) {
+                    return $b->id <=> $a->id; // Jika detiknya sama, ID terbesar naik ke atas
+                }
+                return $b->uploaded_at <=> $a->uploaded_at;
+            })->values();
         }
 
         // --- PAGINASI MANUAL ---
@@ -779,7 +784,8 @@ public function index(Request $request)
     // Gabungkan query union ke dalam satu wrapper table pembungkus agar bisa di-paginate secara global
     $combinedQuery = DB::table(DB::raw("({$unionQuery->toSql()}) as combined"))
         ->mergeBindings($unionQuery)
-        ->orderBy('uploaded_at', 'desc'); // Menjamin dokumen terbaru selalu di paling atas
+        ->orderBy('uploaded_at', 'desc')
+        ->orderBy('id', 'desc'); // Menjamin dokumen terbaru selalu di paling atas
 
     // --- PAGINASI OTOMATIS LARAVEL (Efisien & Cepat) ---
     $documents = $combinedQuery->paginate($perPage)->withQueryString();

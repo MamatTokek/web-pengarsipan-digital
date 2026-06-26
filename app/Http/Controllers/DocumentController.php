@@ -116,7 +116,7 @@ class DocumentController extends Controller
 
             $filteredDocuments = collect();
             foreach ($similarities as $key => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     list($docType, $docId) = explode('_', $key);
                     $foundDoc = $allDocuments->first(function ($item) use ($docType, $docId) {
                         return $item->type == $docType && $item->id == $docId;
@@ -130,7 +130,12 @@ class DocumentController extends Controller
             $sortedCollection = $filteredDocuments;
         } else {
             // Jika kotak pencarian kosong, urutkan berdasarkan update terbaru secara standar
-            $sortedCollection = $allDocuments->sortByDesc('uploaded_at')->values();
+            $sortedCollection = $allDocuments->sort(function ($a, $b) {
+                if ($a->uploaded_at === $b->uploaded_at) {
+                    return $b->id <=> $a->id; // Jika detiknya sama, ID terbesar naik ke atas
+                }
+                return $b->uploaded_at <=> $a->uploaded_at;
+            })->values();
         }
 
         // --- PAGINASI MANUAL ---

@@ -72,7 +72,7 @@ class ArchiveController extends Controller
             // Filter dan petakan arsip yang nilai kemiripannya > 0
             $filteredArchives = collect();
             foreach ($similarities as $id => $score) {
-                if ($score > 0) {
+                if ($score > 0.05) {
                     $archiveData = $allArchives->firstWhere('id', $id);
                     if ($archiveData) {
                         $archiveData->similarity_score = $score; // Simpan skor kemiripan (opsional)
