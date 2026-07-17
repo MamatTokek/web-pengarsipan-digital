@@ -37,7 +37,8 @@ class DocumentController extends Controller
         $categoryId = $request->input('category');
         $status = $request->input('status');
         $month = $request->input('month');
-        $year = $request->input('year'); 
+        $year = $request->input('year');
+        $docType = $request->input('doc_type'); 
         $type = $request->input('type'); 
         $perPage = 10;
 
@@ -58,7 +59,13 @@ class DocumentController extends Controller
                 return $query->where('category_id', $categoryId);
             })
             ->when($status, function ($query) use ($status) {
-                return $query->where('action_status', $status);
+                if ($status === 'pending') {
+                    return $query->where('need_action', true)->where('action_status', 'pending');
+                } elseif ($status === 'completed') {
+                    return $query->where('need_action', true)->where('action_status', 'completed');
+                } elseif ($status === 'no_action') {
+                    return $query->where('need_action', false);
+                }
             })
             ->when($month, function ($query) use ($month) {
                 return $query->whereMonth('uploaded_at', $month);
@@ -76,8 +83,11 @@ class DocumentController extends Controller
             ->when($type == 'Surat', function ($query) {
                 return $query->whereRaw('1 = 0');
             })
-            ->when($status, function ($query) {
-                return $query->whereRaw('1 = 0');
+            ->when($status, function ($query) use ($status) {
+                if ($status === 'pending' || $status === 'completed') {
+                    return $query->whereRaw('1 = 0'); // Sembunyikan arsip
+                }
+                // Jika status = no_action, biarkan arsip tetap lolos seleksi
             })
             // CATATAN: Logika WHERE LIKE bawaan dihapus karena digantikan oleh kalkulasi TF-IDF di bawah
             ->when($categoryId, function ($query) use ($categoryId) {
@@ -147,6 +157,10 @@ class DocumentController extends Controller
             'path' => \Illuminate\Pagination\Paginator::resolveCurrentPath(),
             'query' => $request->query(),
         ]);
+
+        // TARIK DATA MASTER KATEGORI UNTUK DROPDOWN BERTINGKAT
+        $letterCategories = \App\Models\Category::where('type', 'letter')->whereNull('kode_surat')->orderBy('name', 'asc')->get();
+        $archiveCategories = \App\Models\Category::where('type', 'archive')->whereNull('kode_surat')->orderBy('name', 'asc')->get();
         
         // PENGALIHAN VIEW BERDASARKAN ROLE
         if (Auth::user()->role === 'super_role') {
@@ -154,6 +168,16 @@ class DocumentController extends Controller
                 'documents' => $documents,
                 'categories' => $categories,
                 'search' => $request->input('search'),
+                'years' => range(date('Y'), 2022), // Tambahkan ini jika belum ada di blade super admin
+                
+                // SINKRONISASI KODE PENAMBAL ERROR VARIABEL UNTUK SUPER ROLE:
+                'letterCategories' => $letterCategories,
+                'archiveCategories' => $archiveCategories,
+                'currentDocType' => $docType,
+                'currentCategory' => $categoryId,
+                'currentStatus' => $status,
+                'currentMonth' => $month,
+                'currentYear' => $year,
             ]);
         }
 
@@ -161,7 +185,16 @@ class DocumentController extends Controller
             'documents' => $documents,
             'categories' => $categories,
             'search' => $request->input('search'),
-            'years' => range(date('Y'), 2022), 
+            'years' => range(date('Y'), 2022),
+            
+            // KODE TAMBAHAN PENAMBAL ERROR VARIABEL BLADE:
+            'letterCategories' => $letterCategories,
+            'archiveCategories' => $archiveCategories,
+            'currentDocType' => $docType,
+            'currentCategory' => $categoryId,
+            'currentStatus' => $status,
+            'currentMonth' => $month,
+            'currentYear' => $year,
         ]);
     }
 
