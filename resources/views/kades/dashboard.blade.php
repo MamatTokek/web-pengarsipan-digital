@@ -292,11 +292,11 @@
                                         </svg>
                                         <div>
                                             <span class="font-bold uppercase text-[11px] tracking-wider opacity-80 mr-1">Balasan:</span>
-                                            <button @click="previewUrl = '{{ route('letters.show', $letter->replyLetter->id) }}?t={{ time() }}'; 
-                                                    previewTitle = '{{ $letter->replyLetter->name }}'; 
-                                                    qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('{{ $letter->replyLetter->uuid ? route('public.verify.letter', $letter->replyLetter->uuid) : '' }}');
+                                            <button @click="previewUrl = '{{ route('letters.show', $document->reply_letter->id) }}?t={{ time() }}'; 
+                                                    previewTitle = '{{ $document->reply_letter->name }}'; 
+                                                    qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('{{ $document->reply_letter->uuid ? route('public.verify.letter', $document->reply_letter->uuid) : '' }}');
                                                     openModal = true" class="underline hover:text-green-900 font-bold text-left">
-                                                {{ $document->replyLetter->name }}
+                                                {{ $document->reply_letter->name }}
                                             </button>
                                         </div>
                                     </div>
